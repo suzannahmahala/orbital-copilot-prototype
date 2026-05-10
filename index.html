@@ -1,0 +1,3065 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbital Copilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<style>
+/* =========================================================
+   RESET & BASE
+   ========================================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
+body { overflow: hidden; height: 100vh; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, textarea { font-family: inherit; }
+a { text-decoration: none; color: inherit; }
+ul, ol { list-style: none; }
+
+/* Focus styles for AA */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+/* Hide outline for mouse clicks, show for keyboard */
+:focus:not(:focus-visible) { outline: none; }
+
+/* Skip link */
+.skip-link {
+  position: absolute; top: -100%; left: 16px;
+  background: var(--accent); color: #fff;
+  padding: 8px 16px; border-radius: 6px;
+  font-size: 13px; font-weight: 600;
+  z-index: 9999; transition: top 0.2s;
+}
+.skip-link:focus { top: 16px; }
+
+/* =========================================================
+   THEME VARIABLES
+   ========================================================= */
+[data-theme="dark"] {
+  --bg-base: #0b0d13;
+  --bg-surface: #131620;
+  --bg-card: #1a1e2a;
+  --bg-elevated: #232838;
+  --bg-hover: #1e2330;
+  --bg-input: #161a24;
+  --border-subtle: #252a38;
+  --border: #2e3446;
+  --border-focus: #4361ee;
+  --text: #eaedf3;
+  --text-secondary: #9ba3b5;       /* AA: ~5.8:1 on #0b0d13 */
+  --text-muted: #7c8598;           /* AA: ~4.5:1 on #1a1e2a */
+  --accent: #4361ee;
+  --accent-hover: #3651d4;
+  --accent-soft: rgba(67,97,238,0.12);
+  --orange: #ff6b2c;
+  --orange-soft: rgba(255,107,44,0.12);
+  --green: #22c55e;
+  --green-soft: rgba(34,197,94,0.1);
+  --teal: #0ea5e9;
+  --teal-soft: rgba(14,165,233,0.1);
+  --purple: #8b5cf6;
+  --purple-soft: rgba(139,92,246,0.1);
+  --pink: #f43f5e;
+  --pink-soft: rgba(244,63,94,0.1);
+  --yellow: #eab308;
+  --yellow-soft: rgba(234,179,8,0.1);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+  --overlay: rgba(0,0,0,0.6);
+  --scrollbar-track: #131620;
+  --scrollbar-thumb: #2e3446;
+}
+[data-theme="light"] {
+  --bg-base: #f4f6fa;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-elevated: #f0f2f7;
+  --bg-hover: #f0f2f7;
+  --bg-input: #f4f6fa;
+  --border-subtle: #e6e9f0;
+  --border: #d0d4de;
+  --border-focus: #3b55d4;
+  --text: #0f1218;
+  --text-secondary: #454b5c;       /* AA: ~7.5:1 on #fff */
+  --text-muted: #616879;           /* AA: ~5.0:1 on #fff, ~4.6:1 on #f0f2f7 */
+  --accent: #3b55d4;               /* AA: ~5.2:1 on #fff */
+  --accent-hover: #2f46b8;
+  --accent-soft: rgba(59,85,212,0.08);
+  --orange: #b54209;               /* AA: ~5.5:1 on #fff */
+  --orange-soft: rgba(181,66,9,0.08);
+  --green: #15803d;                /* AA: ~5.1:1 on #fff */
+  --green-soft: rgba(21,128,61,0.06);
+  --teal: #0369a1;                 /* AA: ~5.3:1 on #fff */
+  --teal-soft: rgba(3,105,161,0.06);
+  --purple: #6d28d9;               /* AA: ~6.2:1 on #fff */
+  --purple-soft: rgba(109,40,217,0.06);
+  --pink: #be123c;                 /* AA: ~5.4:1 on #fff */
+  --pink-soft: rgba(190,18,60,0.06);
+  --yellow: #854d0e;               /* AA: ~5.8:1 on #fff */
+  --yellow-soft: rgba(133,77,14,0.06);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.1);
+  --overlay: rgba(0,0,0,0.4);
+  --scrollbar-track: #f4f6fa;
+  --scrollbar-thumb: #d0d4de;
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+
+/* =========================================================
+   APP LAYOUT
+   ========================================================= */
+.app {
+  display: flex;
+  height: 100vh;
+  background: var(--bg-base);
+  color: var(--text);
+}
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+.sidebar {
+  width: 64px;
+  min-width: 64px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  z-index: 100;
+}
+.sidebar-logo {
+  width: 36px; height: 36px;
+  margin-bottom: 24px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sidebar-logo svg { width: 32px; height: 32px; }
+.sidebar-nav { display: flex; flex-direction: column; gap: 4px; align-items: center; flex: 1; }
+.sidebar-nav-item {
+  width: 44px; height: 44px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 10px;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+  cursor: pointer;
+  position: relative;
+  gap: 2px;
+}
+.sidebar-nav-item:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.sidebar-nav-item.active { background: var(--accent-soft); color: var(--accent); }
+.sidebar-nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
+.sidebar-nav-item span { font-size: 9px; font-weight: 500; letter-spacing: 0.02em; line-height: 1; }
+.sidebar-spacer { flex: 1; }
+.sidebar-bottom { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.sidebar-avatar {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+  margin-top: 8px;
+}
+.theme-toggle {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; color: var(--text-muted);
+  transition: all 0.15s ease; cursor: pointer;
+}
+.theme-toggle:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.theme-toggle svg { width: 18px; height: 18px; }
+[data-theme="light"] .icon-moon { display: none; }
+[data-theme="dark"] .icon-sun { display: none; }
+
+/* =========================================================
+   MAIN CONTENT
+   ========================================================= */
+.main-content { flex: 1; overflow: hidden; position: relative; }
+.view { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; overflow-y: auto; }
+.view.active { opacity: 1; pointer-events: all; }
+
+/* =========================================================
+   HOMEPAGE
+   ========================================================= */
+.home { padding: 48px 48px 48px 48px; }
+.home-header { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+.home-logo-icon {
+  width: 48px; height: 48px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), #6366f1);
+  display: flex; align-items: center; justify-content: center;
+}
+.home-logo-icon svg { width: 28px; height: 28px; color: #fff; }
+.home-title { font-size: 28px; font-weight: 600; }
+
+.section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.section-title { font-size: 16px; font-weight: 600; }
+.section-link { font-size: 13px; color: var(--text-muted); background: var(--bg-elevated); padding: 4px 12px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+.section-link:hover { color: var(--text-secondary); background: var(--bg-hover); }
+
+/* Project Cards */
+.projects-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 48px; }
+.project-card {
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: 12px; overflow: hidden; cursor: pointer;
+  transition: all 0.2s ease; position: relative;
+}
+.project-card:hover { border-color: var(--border); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.project-card-banner { height: 48px; position: relative; overflow: hidden; }
+.project-card-banner.purple { background: linear-gradient(135deg, #6366f1, #818cf8); }
+.project-card-banner.green { background: linear-gradient(135deg, #059669, #34d399); }
+.project-card-banner.blue { background: linear-gradient(135deg, #2563eb, #60a5fa); }
+.project-card-banner-icon {
+  position: absolute; top: 12px; left: 16px;
+  width: 24px; height: 24px; background: rgba(255,255,255,0.2);
+  border-radius: 6px; display: flex; align-items: center; justify-content: center;
+}
+.project-card-banner-icon svg { width: 14px; height: 14px; color: #fff; }
+.project-card-body { padding: 16px; }
+.project-card-name { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.project-card-meta { display: flex; align-items: center; justify-content: space-between; }
+.project-card-date { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.project-card-date svg { width: 12px; height: 12px; }
+.project-card-avatars { display: flex; }
+.project-card-avatar-sm {
+  width: 22px; height: 22px; border-radius: 6px; font-size: 8px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  margin-left: -4px;
+}
+.new-project-card {
+  background: var(--bg-card); border: 1px dashed var(--border);
+  border-radius: 12px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; transition: all 0.2s ease; min-height: 120px;
+}
+.new-project-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.new-project-card svg { width: 24px; height: 24px; color: var(--text-muted); }
+.new-project-card span { font-size: 13px; color: var(--text-secondary); }
+
+/* Quick Start Grid */
+.quickstart-grid { display: grid; grid-template-columns: 280px repeat(3, 1fr); grid-template-rows: auto auto; gap: 12px; margin-bottom: 40px; }
+.quickstart-card {
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: 12px; padding: 20px; cursor: pointer;
+  transition: all 0.2s ease;
+}
+.quickstart-card:hover { border-color: var(--border); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.quickstart-card-featured { grid-row: 1 / 3; display: flex; flex-direction: column; }
+.quickstart-card-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+.quickstart-card-icon svg { width: 16px; height: 16px; }
+.quickstart-card-icon.orange { background: var(--orange-soft); color: var(--orange); }
+.quickstart-card-icon.green { background: var(--green-soft); color: var(--green); }
+.quickstart-card-icon.teal { background: var(--teal-soft); color: var(--teal); }
+.quickstart-card-icon.purple { background: var(--purple-soft); color: var(--purple); }
+.quickstart-card-icon.pink { background: var(--pink-soft); color: var(--pink); }
+.quickstart-card-icon.yellow { background: var(--yellow-soft); color: var(--yellow); }
+.quickstart-card-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.quickstart-card-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.quickstart-card-featured .quickstart-card-icon { width: 36px; height: 36px; border-radius: 9px; margin-bottom: 16px; }
+.quickstart-card-featured .quickstart-card-icon svg { width: 20px; height: 20px; }
+.quickstart-card-featured .quickstart-card-title { font-size: 16px; margin-bottom: 8px; }
+.quickstart-card-featured .quickstart-card-desc { font-size: 13px; }
+
+/* Ask Copilot CTA */
+.ask-copilot-bar {
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: 12px; padding: 24px 28px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ask-copilot-text h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.ask-copilot-text p { font-size: 13px; color: var(--text-secondary); }
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); color: #fff;
+  padding: 10px 20px; border-radius: 8px;
+  font-size: 13px; font-weight: 600;
+  transition: all 0.15s ease;
+}
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.btn-primary svg { width: 16px; height: 16px; }
+
+/* =========================================================
+   BLUEPRINTS VIEW
+   ========================================================= */
+.blueprints { padding: 48px; }
+.blueprints-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.blueprints-back { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); transition: all 0.15s; cursor: pointer; }
+.blueprints-back:hover { background: var(--bg-hover); color: var(--text); }
+.blueprints-back svg { width: 20px; height: 20px; }
+.blueprints-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 32px; margin-left: 48px; }
+.blueprints-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-left: 48px; }
+.blueprint-card {
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: 12px; padding: 24px; cursor: pointer;
+  transition: all 0.2s ease; position: relative;
+}
+.blueprint-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.blueprint-card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.blueprint-card-icon svg { width: 20px; height: 20px; }
+.blueprint-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.blueprint-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px; }
+.blueprint-card-meta { display: flex; gap: 12px; }
+.blueprint-meta-pill { font-size: 11px; color: var(--text-muted); background: var(--bg-elevated); padding: 4px 10px; border-radius: 5px; }
+
+/* Blueprint Detail Panel */
+.blueprint-detail-overlay {
+  position: fixed; inset: 0; background: var(--overlay);
+  z-index: 200; display: none; align-items: center; justify-content: center;
+}
+.blueprint-detail-overlay.active { display: flex; }
+.blueprint-detail {
+  background: var(--bg-surface); border-radius: 16px; width: 640px; max-height: 85vh;
+  overflow-y: auto; box-shadow: var(--shadow-lg); border: 1px solid var(--border-subtle);
+}
+.blueprint-detail-header {
+  padding: 28px 28px 0; display: flex; justify-content: space-between; align-items: flex-start;
+}
+.blueprint-detail-close { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+.blueprint-detail-close:hover { background: var(--bg-hover); color: var(--text); }
+.blueprint-detail-close svg { width: 18px; height: 18px; }
+.blueprint-detail-body { padding: 24px 28px 28px; }
+.blueprint-detail h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.blueprint-detail-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 24px; }
+.blueprint-section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px; }
+.blueprint-topics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 28px; }
+.blueprint-topic {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--bg-elevated); border-radius: 8px; font-size: 13px; color: var(--text-secondary);
+}
+.blueprint-topic svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+.blueprint-docs-note { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px; padding: 16px; background: var(--accent-soft); border-radius: 10px; border: 1px solid rgba(67,97,238,0.15); }
+.blueprint-docs-note strong { color: var(--text); }
+.btn-generate {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--accent); color: #fff; padding: 14px; border-radius: 10px;
+  font-size: 14px; font-weight: 600; transition: all 0.15s;
+}
+.btn-generate:hover { background: var(--accent-hover); }
+.btn-generate svg { width: 18px; height: 18px; }
+
+/* =========================================================
+   WORKSPACE
+   ========================================================= */
+.workspace {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  grid-template-rows: auto auto 1fr;
+  height: 100%;
+}
+.workspace.no-docs { grid-template-columns: 1fr; }
+.workspace.no-docs .doc-panel { display: none; }
+
+/* Property Context Bar */
+.property-bar {
+  grid-column: 1 / -1;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 12px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.property-bar-left { display: flex; align-items: center; gap: 12px; }
+.property-bar-back {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+}
+.property-bar-back:hover { background: var(--bg-hover); color: var(--text); }
+.property-bar-back svg { width: 18px; height: 18px; }
+.property-bar-divider { width: 1px; height: 24px; background: var(--border-subtle); }
+.property-bar-info h2 { font-size: 14px; font-weight: 600; }
+.property-bar-info p { font-size: 12px; color: var(--text-secondary); }
+.property-bar-right { display: flex; align-items: center; gap: 8px; }
+.property-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;
+  background: var(--bg-elevated); color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+.property-pill svg { width: 12px; height: 12px; }
+.property-pill.tenure { color: var(--accent); background: var(--accent-soft); border-color: rgba(67,97,238,0.2); }
+.property-map-btn {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+}
+.property-map-btn:hover { border-color: var(--accent); color: var(--accent); }
+.property-map-btn svg { width: 16px; height: 16px; }
+
+/* Document Panel */
+.doc-panel {
+  grid-row: 3 / 4;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.doc-panel-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.doc-panel-header h3 { font-size: 13px; font-weight: 600; }
+.doc-panel-count { font-size: 11px; color: var(--text-muted); background: var(--bg-elevated); padding: 2px 7px; border-radius: 4px; }
+.doc-panel-list { flex: 1; overflow-y: auto; padding: 12px; }
+.doc-item {
+  padding: 14px; border-radius: 10px; margin-bottom: 8px;
+  border: 1px solid var(--border-subtle); cursor: pointer;
+  transition: all 0.15s;
+}
+.doc-item:hover { border-color: var(--border); background: var(--bg-hover); }
+.doc-item.active { border-color: var(--accent); background: var(--accent-soft); }
+.doc-item.cited { border-color: var(--green); background: var(--green-soft); }
+.doc-item-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.doc-item-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.doc-item-icon svg { width: 16px; height: 16px; }
+.doc-item-icon.lease { background: var(--orange-soft); color: var(--orange); }
+.doc-item-icon.deed { background: var(--purple-soft); color: var(--purple); }
+.doc-item-icon.title { background: var(--teal-soft); color: var(--teal); }
+.doc-item-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
+.doc-item-date { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.doc-item-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.doc-item-tag {
+  font-size: 10px; padding: 3px 8px; border-radius: 4px;
+  background: var(--bg-elevated); color: var(--text-muted);
+}
+.doc-item-tag.ai { color: var(--accent); background: var(--accent-soft); }
+.doc-panel-upload {
+  padding: 12px; border-top: 1px solid var(--border-subtle);
+}
+.doc-upload-btn {
+  width: 100%; padding: 10px; border-radius: 8px;
+  border: 1px dashed var(--border); background: transparent;
+  color: var(--text-muted); font-size: 12px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; transition: all 0.15s;
+}
+.doc-upload-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.doc-upload-btn svg { width: 14px; height: 14px; }
+
+/* Content Area */
+.content-area {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.content-scroll {
+  flex: 1; overflow-y: auto; padding: 32px 40px;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%; text-align: center;
+}
+.empty-state-icon {
+  width: 64px; height: 64px; border-radius: 16px;
+  background: var(--accent-soft);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 20px;
+}
+.empty-state-icon svg { width: 28px; height: 28px; color: var(--accent); }
+.empty-state h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.empty-state p { font-size: 14px; color: var(--text-secondary); max-width: 400px; line-height: 1.5; }
+
+/* Upload Drop Zone */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 16px;
+  padding: 48px; text-align: center; margin-bottom: 32px;
+  transition: all 0.2s; cursor: pointer; max-width: 560px; margin-left: auto; margin-right: auto;
+}
+.upload-zone:hover { border-color: var(--accent); background: var(--accent-soft); }
+.upload-zone-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+.upload-zone-icon svg { width: 24px; height: 24px; color: var(--text-muted); }
+.upload-zone h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.upload-zone p { font-size: 13px; color: var(--text-secondary); }
+.upload-zone .browse { color: var(--accent); font-weight: 500; }
+
+/* Session Resumed Banner */
+.session-banner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 10px; margin-bottom: 28px;
+  background: var(--accent-soft); border: 1px solid rgba(59,85,212,0.15);
+}
+.session-banner-icon {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.session-banner-icon svg { width: 16px; height: 16px; }
+.session-banner-text { flex: 1; }
+.session-banner-title { font-size: 13px; font-weight: 600; margin-bottom: 1px; }
+.session-banner-detail { font-size: 12px; color: var(--text-secondary); }
+
+/* Timestamp Divider */
+.timestamp-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 24px 0; color: var(--text-muted); font-size: 11px; font-weight: 500;
+}
+.timestamp-divider::before, .timestamp-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border-subtle);
+}
+
+/* Proactive Copilot Card */
+.copilot-proactive {
+  border: 1px solid var(--border-subtle); border-radius: 12px;
+  overflow: hidden; margin-bottom: 28px;
+}
+.copilot-proactive-header {
+  padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+  background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle);
+}
+.copilot-proactive-header svg { width: 16px; height: 16px; color: var(--accent); }
+.copilot-proactive-header span { font-size: 12px; font-weight: 600; color: var(--accent); }
+.copilot-proactive-body { padding: 16px; }
+.copilot-proactive-body p { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; }
+.copilot-proactive-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.copilot-proactive-action {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 500;
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+}
+.copilot-proactive-action:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.copilot-proactive-action svg { width: 12px; height: 12px; }
+.copilot-proactive-action.primary {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+}
+.copilot-proactive-action.primary:hover { background: var(--accent-hover); }
+
+/* Inline summary table (compact) */
+.inline-summary {
+  width: 100%; border-collapse: collapse; margin: 8px 0 4px;
+  font-size: 13px; border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden;
+}
+.inline-summary th {
+  text-align: left; padding: 8px 14px; font-size: 11px; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+  background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle);
+}
+.inline-summary td {
+  padding: 8px 14px; border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top; line-height: 1.5; color: var(--text-secondary);
+}
+.inline-summary tr:last-child td { border-bottom: none; }
+.inline-summary td:first-child { font-weight: 600; color: var(--text); width: 140px; }
+
+/* Conversation Messages */
+.conversation { max-width: 740px; }
+.message { margin-bottom: 28px; }
+.message-user { display: flex; gap: 12px; }
+.message-avatar {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+}
+.message-avatar.user { background: var(--accent); color: #fff; }
+.message-avatar.ai { background: linear-gradient(135deg, var(--accent), #6366f1); color: #fff; }
+.message-content { flex: 1; }
+.message-name { font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+.message-name .label { color: var(--text-muted); font-weight: 400; margin-left: 6px; font-size: 11px; }
+.message-text { font-size: 14px; line-height: 1.7; color: var(--text-secondary); }
+.message-text p { margin-bottom: 12px; }
+.message-text strong { color: var(--text); font-weight: 600; }
+.message-text ol, .message-text ul { padding-left: 20px; margin-bottom: 12px; }
+.message-text li { margin-bottom: 6px; }
+
+/* AI Reasoning Timeline */
+.reasoning-timeline { margin: 16px 0 20px; }
+.reasoning-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-muted); cursor: pointer;
+  padding: 6px 12px; border-radius: 6px; background: var(--bg-elevated);
+  transition: all 0.15s; border: 1px solid var(--border-subtle);
+}
+.reasoning-toggle:hover { color: var(--text-secondary); border-color: var(--border); }
+.reasoning-toggle svg { width: 14px; height: 14px; transition: transform 0.2s; }
+.reasoning-toggle.expanded svg { transform: rotate(90deg); }
+.reasoning-steps { margin-top: 12px; display: none; }
+.reasoning-steps.visible { display: block; }
+.reasoning-step {
+  display: flex; gap: 12px; padding: 10px 0;
+  position: relative;
+}
+.reasoning-step:not(:last-child)::before {
+  content: ''; position: absolute; left: 11px; top: 34px; bottom: 0;
+  width: 1px; background: var(--border-subtle);
+}
+.reasoning-step-icon {
+  width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.reasoning-step-icon svg { width: 14px; height: 14px; }
+.reasoning-step-icon.done { background: var(--green-soft); color: var(--green); }
+.reasoning-step-icon.active { background: var(--accent-soft); color: var(--accent); }
+.reasoning-step-content { flex: 1; }
+.reasoning-step-label { font-size: 12px; font-weight: 600; margin-bottom: 2px; color: var(--text-secondary); }
+.reasoning-step-detail { font-size: 12px; color: var(--text-muted); line-height: 1.5; font-style: italic; }
+.reasoning-step-link { font-size: 12px; color: var(--accent); cursor: pointer; display: block; margin-top: 2px; }
+.reasoning-step-link:hover { text-decoration: underline; }
+
+/* Citations */
+.citation {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; font-size: 10px; font-weight: 700;
+  color: var(--accent); background: var(--accent-soft);
+  border-radius: 4px; cursor: pointer; vertical-align: super;
+  margin: 0 1px; transition: all 0.15s; position: relative; top: -2px;
+}
+.citation:hover { background: var(--accent); color: #fff; }
+
+/* Sources Panel */
+.sources-panel {
+  margin-top: 16px; padding: 16px; border-radius: 10px;
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+}
+.sources-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 10px; }
+.source-item {
+  display: flex; align-items: flex-start; gap: 8px; padding: 6px 0;
+  font-size: 12px; color: var(--text-secondary);
+}
+.source-num {
+  width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; background: var(--accent-soft); color: var(--accent);
+}
+.source-text { line-height: 1.4; }
+.source-doc { color: var(--accent); font-weight: 500; }
+
+/* Report Table */
+.report-output { max-width: 800px; }
+.report-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.report-title-section h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.report-title-section p { font-size: 13px; color: var(--text-secondary); }
+.report-actions { display: flex; gap: 8px; }
+.btn-outline {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 500;
+  border: 1px solid var(--border); color: var(--text-secondary);
+  background: transparent; transition: all 0.15s;
+}
+.btn-outline:hover { border-color: var(--text-muted); color: var(--text); background: var(--bg-hover); }
+.btn-outline svg { width: 14px; height: 14px; }
+.report-table {
+  width: 100%; border-collapse: collapse;
+  border: 1px solid var(--border-subtle); border-radius: 12px;
+  overflow: hidden; background: var(--bg-card);
+}
+.report-table thead { background: var(--bg-elevated); }
+.report-table th {
+  text-align: left; padding: 12px 20px; font-size: 12px;
+  font-weight: 600; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.04em; border-bottom: 1px solid var(--border-subtle);
+}
+.report-table td {
+  padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top; font-size: 13px; line-height: 1.6;
+}
+.report-table tr:last-child td { border-bottom: none; }
+.report-table td:first-child {
+  font-weight: 600; color: var(--text); width: 160px; white-space: nowrap;
+}
+.report-table td:last-child { color: var(--text-secondary); }
+.report-table td strong { color: var(--text); }
+.report-table td ul { padding-left: 16px; margin: 6px 0; }
+.report-table td li { margin-bottom: 4px; }
+
+/* Report Progress */
+.report-progress { max-width: 600px; margin: 0 auto; }
+.report-progress-header { text-align: center; margin-bottom: 32px; }
+.report-progress-header h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.report-progress-header p { font-size: 13px; color: var(--text-secondary); }
+.progress-bar-container { height: 4px; background: var(--bg-elevated); border-radius: 2px; margin-bottom: 32px; overflow: hidden; }
+.progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s ease; }
+.progress-steps { }
+.progress-step { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; margin-bottom: 6px; transition: all 0.3s; }
+.progress-step.completed { opacity: 0.6; }
+.progress-step.active { background: var(--accent-soft); }
+.progress-step.pending { opacity: 0.3; }
+.progress-step-check {
+  width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.progress-step-check svg { width: 12px; height: 12px; }
+.progress-step.completed .progress-step-check { background: var(--green-soft); color: var(--green); }
+.progress-step.active .progress-step-check { background: var(--accent-soft); color: var(--accent); }
+.progress-step.pending .progress-step-check { background: var(--bg-elevated); color: var(--text-muted); }
+.progress-step-label { font-size: 13px; font-weight: 500; }
+.progress-step.active .progress-step-label { color: var(--accent); }
+
+/* Suggestion Chips */
+.suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.suggestion-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px; font-size: 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+  color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+}
+.suggestion-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.suggestion-chip svg { width: 12px; height: 12px; }
+
+/* Input Area */
+.input-area {
+  padding: 16px 40px 24px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+.input-container {
+  display: flex; align-items: flex-end; gap: 12px;
+  background: var(--bg-input); border: 1px solid var(--border-subtle);
+  border-radius: 12px; padding: 10px 12px 10px 18px;
+  transition: border-color 0.15s;
+}
+.input-container:focus-within { border-color: var(--accent); }
+.input-field {
+  flex: 1; border: none; background: none; color: var(--text);
+  font-size: 14px; resize: none; outline: none;
+  min-height: 24px; max-height: 120px; line-height: 24px;
+}
+.input-field::placeholder { color: var(--text-muted); }
+.input-actions { display: flex; gap: 4px; align-items: center; }
+.input-action-btn {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); transition: all 0.15s;
+}
+.input-action-btn:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.input-action-btn svg { width: 18px; height: 18px; }
+.input-send {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; transition: all 0.15s;
+}
+.input-send:hover { background: var(--accent-hover); }
+.input-send svg { width: 18px; height: 18px; }
+.input-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; text-align: center; }
+
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.animate-in { animation: fadeInUp 0.35s ease forwards; }
+.animate-fade { animation: fadeIn 0.3s ease forwards; }
+.loading-pulse { animation: pulse 1.5s ease-in-out infinite; }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+
+/* =========================================================
+   MAP MODAL
+   ========================================================= */
+.map-modal {
+  position: fixed; inset: 0; background: var(--overlay);
+  z-index: 300; display: none; align-items: center; justify-content: center;
+}
+.map-modal.active { display: flex; }
+.map-card {
+  background: var(--bg-surface); border-radius: 16px; width: 520px;
+  box-shadow: var(--shadow-lg); border: 1px solid var(--border-subtle); overflow: hidden;
+}
+.map-card-header {
+  padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.map-card-header h3 { font-size: 14px; font-weight: 600; }
+.map-visual {
+  height: 280px; background: var(--bg-elevated); position: relative;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.map-svg { width: 100%; height: 100%; }
+.map-card-footer {
+  padding: 16px 20px; display: flex; flex-direction: column; gap: 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+.map-card-footer strong { font-size: 13px; }
+.map-card-footer span { font-size: 12px; color: var(--text-secondary); }
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+@media (max-width: 1200px) {
+  .projects-grid { grid-template-columns: repeat(3, 1fr); }
+  .quickstart-grid { grid-template-columns: 1fr 1fr; }
+  .quickstart-card-featured { grid-row: 1; }
+  .blueprints-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* =========================================================
+   WORKSPACE STATES
+   ========================================================= */
+.ws-state { display: none; }
+.ws-state.active { display: block; }
+.ws-state-flex { display: none; }
+.ws-state-flex.active { display: flex; flex-direction: column; height: 100%; }
+
+/* =========================================================
+   PROPERTY VISUALISER VIEW
+   ========================================================= */
+.visualiser { display: flex; height: 100%; overflow: hidden; }
+.vis-panel {
+  width: 360px; min-width: 360px;
+  background: var(--bg-surface); border-right: 1px solid var(--border-subtle);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.vis-panel-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.vis-panel-header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.vis-panel-header h2 { font-size: 16px; font-weight: 700; }
+.vis-panel-header p { font-size: 12px; color: var(--text-secondary); }
+.vis-panel-scroll { flex: 1; overflow-y: auto; }
+.vis-section { padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); }
+.vis-section-title {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px;
+}
+
+/* Portfolio Property Cards */
+.vis-property {
+  padding: 12px; border-radius: 10px; margin-bottom: 8px;
+  border: 1px solid var(--border-subtle); cursor: pointer;
+  transition: all 0.15s;
+}
+.vis-property:hover { border-color: var(--border); background: var(--bg-hover); }
+.vis-property.active { border-color: var(--accent); background: var(--accent-soft); }
+.vis-property-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.vis-property-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.vis-property-address { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+.vis-property-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.vis-property-tag {
+  font-size: 10px; padding: 2px 8px; border-radius: 4px;
+  font-weight: 500;
+}
+.vis-property-tag.leasehold { background: var(--accent-soft); color: var(--accent); }
+.vis-property-tag.freehold { background: var(--green-soft); color: var(--green); }
+.vis-property-tag.office { background: var(--bg-elevated); color: var(--text-muted); }
+.vis-property-tag.mixed { background: var(--purple-soft); color: var(--purple); }
+.vis-property-tag.retail { background: var(--orange-soft); color: var(--orange); }
+.vis-property-tag.residential { background: var(--teal-soft); color: var(--teal); }
+.vis-property-risk {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600; padding: 3px 8px;
+  border-radius: 4px; flex-shrink: 0;
+}
+.vis-property-risk.low { background: var(--green-soft); color: var(--green); }
+.vis-property-risk.medium { background: var(--yellow-soft); color: var(--yellow); }
+.vis-property-risk.high { background: var(--pink-soft); color: var(--pink); }
+.vis-property-risk svg { width: 10px; height: 10px; }
+
+/* Layer Toggles */
+.vis-layer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0;
+}
+.vis-layer-info { display: flex; align-items: center; gap: 10px; }
+.vis-layer-swatch {
+  width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0;
+}
+.vis-layer-name { font-size: 13px; }
+.vis-layer-count { font-size: 11px; color: var(--text-muted); }
+.vis-toggle {
+  width: 36px; height: 20px; border-radius: 10px;
+  background: var(--border); position: relative;
+  cursor: pointer; transition: background 0.2s;
+}
+.vis-toggle.on { background: var(--accent); }
+.vis-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 8px;
+  background: #fff; transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.vis-toggle.on::after { transform: translateX(16px); }
+
+/* Risk Summary */
+.vis-risk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vis-risk-card {
+  padding: 12px; border-radius: 8px;
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+}
+.vis-risk-card-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.vis-risk-card-icon { width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; }
+.vis-risk-card-icon svg { width: 12px; height: 12px; }
+.vis-risk-card-title { font-size: 11px; font-weight: 600; }
+.vis-risk-card-value { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+.vis-risk-card-label { font-size: 10px; color: var(--text-muted); }
+
+/* Map container */
+.vis-map { flex: 1; position: relative; }
+.vis-map-container { width: 100%; height: 100%; }
+
+/* Map legend overlay */
+.map-legend {
+  position: absolute; bottom: 24px; left: 24px;
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+  border-radius: 10px; padding: 12px 16px;
+  box-shadow: var(--shadow-md); font-size: 11px; z-index: 10;
+}
+.map-legend-title { font-weight: 600; margin-bottom: 8px; font-size: 11px; }
+.map-legend-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--text-secondary); }
+.map-legend-color {
+  width: 16px; height: 10px; border-radius: 2px; flex-shrink: 0;
+}
+
+/* Property detail flyout on map */
+.map-property-popup {
+  position: absolute; top: 24px; right: 24px;
+  width: 300px; background: var(--bg-surface);
+  border: 1px solid var(--border-subtle); border-radius: 12px;
+  box-shadow: var(--shadow-lg); z-index: 10;
+  display: none; overflow: hidden;
+}
+.map-property-popup.visible { display: block; }
+.map-property-popup-header {
+  padding: 16px; border-bottom: 1px solid var(--border-subtle);
+  display: flex; align-items: flex-start; justify-content: space-between;
+}
+.map-property-popup-close {
+  width: 24px; height: 24px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+}
+.map-property-popup-close:hover { background: var(--bg-hover); color: var(--text); }
+.map-property-popup-close svg { width: 14px; height: 14px; }
+.map-property-popup h3 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.map-property-popup .popup-address { font-size: 12px; color: var(--text-secondary); }
+.map-property-popup-body { padding: 16px; }
+.popup-data-row {
+  display: flex; justify-content: space-between; padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle); font-size: 12px;
+}
+.popup-data-row:last-child { border-bottom: none; }
+.popup-data-label { color: var(--text-muted); }
+.popup-data-value { font-weight: 600; }
+.popup-risk-badges { display: flex; gap: 6px; margin-top: 12px; }
+.popup-risk-badge {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600; padding: 4px 10px;
+  border-radius: 5px;
+}
+.map-property-popup-footer {
+  padding: 12px 16px; border-top: 1px solid var(--border-subtle);
+  display: flex; gap: 8px;
+}
+.popup-action-btn {
+  flex: 1; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  text-align: center; transition: all 0.15s; cursor: pointer;
+}
+.popup-action-btn.primary { background: var(--accent); color: #fff; }
+.popup-action-btn.primary:hover { background: var(--accent-hover); }
+.popup-action-btn.secondary { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+.popup-action-btn.secondary:hover { border-color: var(--border); color: var(--text); }
+
+/* Enhanced map modal */
+.map-modal .map-card {
+  width: 800px; max-width: 90vw;
+}
+.map-modal .map-visual {
+  height: 360px;
+}
+.map-modal-content { display: flex; height: 360px; }
+.map-modal-map { flex: 1; position: relative; }
+.map-modal-map-container { width: 100%; height: 100%; }
+.map-modal-sidebar {
+  width: 220px; padding: 16px;
+  border-left: 1px solid var(--border-subtle);
+  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto;
+}
+.map-modal-sidebar-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.map-modal-risk-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px;
+  border-radius: 8px; background: var(--bg-elevated);
+  font-size: 12px;
+}
+.map-modal-risk-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.map-modal-risk-text { flex: 1; }
+.map-modal-risk-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 3px; }
+
+/* Workspace inline map strip */
+.workspace-map-strip {
+  grid-column: 1 / -1; grid-row: 2;
+  height: 0; overflow: hidden;
+  transition: height 0.3s ease;
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+}
+.workspace-map-strip.expanded { height: 220px; }
+.workspace-map-strip-container { width: 100%; height: 100%; }
+.workspace-map-strip-overlay {
+  position: absolute; top: 12px; right: 12px; z-index: 5;
+  display: flex; gap: 6px;
+}
+.ws-map-layer-chip {
+  padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 600;
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+  color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+  box-shadow: var(--shadow-sm);
+}
+.ws-map-layer-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ws-map-layer-chip:hover { border-color: var(--accent); }
+.ws-map-collapse {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 5;
+  padding: 4px 16px; border-radius: 6px;
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+  color: var(--text-muted); cursor: pointer; font-size: 11px;
+  box-shadow: var(--shadow-sm); transition: all 0.15s;
+}
+.ws-map-collapse:hover { color: var(--text); border-color: var(--border); }
+
+/* MapLibre popup overrides */
+.maplibregl-popup-content {
+  background: var(--bg-surface) !important;
+  color: var(--text) !important;
+  border-radius: 10px !important;
+  padding: 12px 16px !important;
+  box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--border-subtle) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12px !important;
+  max-width: 240px !important;
+}
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: var(--bg-surface) !important; }
+.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: var(--bg-surface) !important; }
+.maplibregl-popup-close-button { color: var(--text-muted) !important; font-size: 18px !important; right: 6px !important; top: 4px !important; }
+.maplibregl-ctrl-attrib { font-size: 9px !important; opacity: 0.5; }
+.map-popup-name { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.map-popup-addr { color: var(--text-secondary); margin-bottom: 8px; }
+.map-popup-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.map-popup-tag { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 500; }
+</style>
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div class="app" role="application" aria-label="Orbital Copilot">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="sidebar-logo">
+      <svg viewBox="0 0 32 32" fill="none">
+        <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" fill="#4361ee" opacity="0.2"/>
+        <path d="M16 2L28 9L16 16L4 9L16 2Z" fill="#4361ee" opacity="0.6"/>
+        <path d="M16 16V30L4 23V9L16 16Z" fill="#4361ee" opacity="0.4"/>
+        <path d="M16 16V30L28 23V9L16 16Z" fill="#4361ee" opacity="0.8"/>
+      </svg>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="sidebar-nav-item active" data-view="home" title="Home" role="button" tabindex="0" aria-label="Home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
+      </div>
+      <div class="sidebar-nav-item" data-view="projects" title="Projects" role="button" tabindex="0" aria-label="Projects">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>Projects</span>
+      </div>
+      <div class="sidebar-nav-item" data-view="blueprints" title="Blueprints" role="button" tabindex="0" aria-label="Blueprints">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        <span>Blueprints</span>
+      </div>
+      <div class="sidebar-nav-item" data-view="resources" title="Resources" role="button" tabindex="0" aria-label="Resources">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>Resources</span>
+      </div>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="sidebar-nav-item" title="Admin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+      <div class="sidebar-nav-item" title="History">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div class="sidebar-nav-item" title="Help">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle light and dark theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <div class="sidebar-avatar">TR</div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN CONTENT ===================== -->
+  <div class="main-content" id="main-content" role="main">
+
+    <!-- =================== HOME VIEW =================== -->
+    <section id="view-home" class="view active home">
+      <div class="home-header">
+        <div class="home-logo-icon">
+          <svg viewBox="0 0 32 32" fill="none"><path d="M16 4L26 10V22L16 28L6 22V10L16 4Z" fill="white" opacity="0.9"/><path d="M16 4L26 10L16 16L6 10L16 4Z" fill="white"/></svg>
+        </div>
+        <h1 class="home-title">Welcome back, Tommy</h1>
+      </div>
+
+      <div class="section-header">
+        <h2 class="section-title">Recent Projects</h2>
+        <span class="section-link">See all</span>
+      </div>
+      <div class="projects-grid">
+        <div class="project-card" onclick="openWorkspace('resume', 'abc')" role="button" tabindex="0" aria-label="Open ABC Acquisition project">
+          <div class="project-card-banner purple">
+            <div class="project-card-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            </div>
+          </div>
+          <div class="project-card-body">
+            <div class="project-card-name">ABC Acquisition</div>
+            <div class="project-card-meta">
+              <span class="project-card-date">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Jan 28, 3:54 PM
+              </span>
+              <div class="project-card-avatars">
+                <div class="project-card-avatar-sm" style="background:#4361ee">TR</div>
+                <div class="project-card-avatar-sm" style="background:#8b5cf6">AM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="project-card" onclick="openWorkspace('resume', 'greenlock')" role="button" tabindex="0" aria-label="Open Greenlock Development project">
+          <div class="project-card-banner green">
+            <div class="project-card-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            </div>
+          </div>
+          <div class="project-card-body">
+            <div class="project-card-name">Greenlock Development</div>
+            <div class="project-card-meta">
+              <span class="project-card-date">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Jan 28, 3:54 PM
+              </span>
+              <div class="project-card-avatars">
+                <div class="project-card-avatar-sm" style="background:#4361ee">TR</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="project-card" onclick="openWorkspace('resume', 'londale')" role="button" tabindex="0" aria-label="Open 25 Londale St project">
+          <div class="project-card-banner blue">
+            <div class="project-card-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+            </div>
+          </div>
+          <div class="project-card-body">
+            <div class="project-card-name">25 Londale St</div>
+            <div class="project-card-meta">
+              <span class="project-card-date">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Jan 28, 3:51 PM
+              </span>
+              <div class="project-card-avatars">
+                <div class="project-card-avatar-sm" style="background:#4361ee">TR</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="new-project-card" onclick="openWorkspace('new')" role="button" tabindex="0" aria-label="Create a new project">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Create a new project</span>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h2 class="section-title">Quick Start</h2>
+      </div>
+      <div class="quickstart-grid">
+        <div class="quickstart-card quickstart-card-featured" onclick="openWorkspace('new')">
+          <div class="quickstart-card-icon teal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <div class="quickstart-card-title">Review Title &amp; Survey</div>
+          <div class="quickstart-card-desc">Report on commitments, analyse exceptions, visualise on survey, prepare issues list, draft title memo and title objection letter.</div>
+        </div>
+
+        <div class="quickstart-card" onclick="navigate('blueprints')">
+          <div class="quickstart-card-icon orange">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          </div>
+          <div class="quickstart-card-title">Report</div>
+          <div class="quickstart-card-desc">Generate reports, highlight exceptions, verify compliance.</div>
+        </div>
+
+        <div class="quickstart-card" onclick="openWorkspace('new')">
+          <div class="quickstart-card-icon yellow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <div class="quickstart-card-title">Research</div>
+          <div class="quickstart-card-desc">Query on key real estate concepts.</div>
+        </div>
+
+        <div class="quickstart-card" onclick="openWorkspace('new')">
+          <div class="quickstart-card-icon pink">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </div>
+          <div class="quickstart-card-title">Compare</div>
+          <div class="quickstart-card-desc">Compare two documents and summarise key differences.</div>
+        </div>
+
+        <div class="quickstart-card" onclick="openWorkspace('new')">
+          <div class="quickstart-card-icon purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div class="quickstart-card-title">Summarise</div>
+          <div class="quickstart-card-desc">Condense documents or clauses into key points.</div>
+        </div>
+
+        <div class="quickstart-card" onclick="navigate('visualiser')">
+          <div class="quickstart-card-icon green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          </div>
+          <div class="quickstart-card-title">Property Visualiser</div>
+          <div class="quickstart-card-desc">Access the map to view legal descriptions and overlay plans.</div>
+        </div>
+      </div>
+
+      <div class="ask-copilot-bar">
+        <div class="ask-copilot-text">
+          <h3>Ask Copilot</h3>
+          <p>Start a conversation with Copilot and get help with your real estate transactions.</p>
+        </div>
+        <button class="btn-primary" onclick="openWorkspace('new')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Ask Copilot
+        </button>
+      </div>
+    </section>
+
+    <!-- =================== BLUEPRINTS VIEW =================== -->
+    <section id="view-blueprints" class="view blueprints">
+      <div class="blueprints-header">
+        <div class="blueprints-back" onclick="navigate('home')" role="button" tabindex="0" aria-label="Back to home">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </div>
+        <h1 class="section-title" style="font-size:22px;">Report Blueprints</h1>
+      </div>
+      <p class="blueprints-subtitle">Select a blueprint to generate a structured due diligence report from your documents.</p>
+
+      <div class="blueprints-grid">
+        <div class="blueprint-card" onclick="showBlueprintDetail()">
+          <div class="blueprint-card-icon" style="background:var(--orange-soft);color:var(--orange)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <h3>Certificate of Title &ndash; Schedule 5</h3>
+          <p>Comprehensive title review covering all key aspects of the property's legal status and lease terms.</p>
+          <div class="blueprint-card-meta">
+            <span class="blueprint-meta-pill">18 topics</span>
+            <span class="blueprint-meta-pill">~15 min</span>
+          </div>
+        </div>
+
+        <div class="blueprint-card">
+          <div class="blueprint-card-icon" style="background:var(--teal-soft);color:var(--teal)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <h3>Lease Summary Report</h3>
+          <p>Extract and summarise key commercial and legal terms from a lease document.</p>
+          <div class="blueprint-card-meta">
+            <span class="blueprint-meta-pill">12 topics</span>
+            <span class="blueprint-meta-pill">~8 min</span>
+          </div>
+        </div>
+
+        <div class="blueprint-card">
+          <div class="blueprint-card-icon" style="background:var(--pink-soft);color:var(--pink)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <h3>Title Defect Analysis</h3>
+          <p>Identify and assess potential title defects, encumbrances, and restrictions.</p>
+          <div class="blueprint-card-meta">
+            <span class="blueprint-meta-pill">10 topics</span>
+            <span class="blueprint-meta-pill">~10 min</span>
+          </div>
+        </div>
+
+        <div class="blueprint-card">
+          <div class="blueprint-card-icon" style="background:var(--green-soft);color:var(--green)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Environmental Risk Report</h3>
+          <p>Assess environmental risks including flooding, contamination, and planning constraints.</p>
+          <div class="blueprint-card-meta">
+            <span class="blueprint-meta-pill">8 topics</span>
+            <span class="blueprint-meta-pill">~12 min</span>
+          </div>
+        </div>
+
+        <div class="blueprint-card">
+          <div class="blueprint-card-icon" style="background:var(--purple-soft);color:var(--purple)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+          <h3>Covenant Compliance Review</h3>
+          <p>Review compliance with restrictive covenants and conditions attached to the title.</p>
+          <div class="blueprint-card-meta">
+            <span class="blueprint-meta-pill">6 topics</span>
+            <span class="blueprint-meta-pill">~8 min</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== PROPERTY VISUALISER VIEW =================== -->
+    <section id="view-visualiser" class="view">
+      <div class="visualiser">
+        <!-- Side Panel -->
+        <div class="vis-panel">
+          <div class="vis-panel-header">
+            <div class="vis-panel-header-top">
+              <button class="property-bar-back" onclick="navigate('home')" style="flex-shrink:0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              </button>
+              <div>
+                <h2>Property Visualiser</h2>
+                <p>3 properties across 2 locations</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="vis-panel-scroll">
+            <!-- Portfolio Properties -->
+            <div class="vis-section">
+              <div class="vis-section-title">Portfolio Properties</div>
+
+              <div class="vis-property active" data-property="nss" onclick="flyToProperty('nss')">
+                <div class="vis-property-row">
+                  <div>
+                    <div class="vis-property-name">Building 5, New Street Square</div>
+                    <div class="vis-property-address">New Fetter Lane, London EC4A 3BF</div>
+                  </div>
+                  <div class="vis-property-risk medium">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                    Med
+                  </div>
+                </div>
+                <div class="vis-property-tags">
+                  <span class="vis-property-tag leasehold">Leasehold</span>
+                  <span class="vis-property-tag office">Office &middot; 8th Floor</span>
+                </div>
+              </div>
+
+              <div class="vis-property" data-property="greenlock" onclick="flyToProperty('greenlock')">
+                <div class="vis-property-row">
+                  <div>
+                    <div class="vis-property-name">14&ndash;18 Greenlock Road</div>
+                    <div class="vis-property-address">London SE18 5QZ</div>
+                  </div>
+                  <div class="vis-property-risk high">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                    High
+                  </div>
+                </div>
+                <div class="vis-property-tags">
+                  <span class="vis-property-tag freehold">Freehold</span>
+                  <span class="vis-property-tag mixed">Mixed-Use Dev</span>
+                </div>
+              </div>
+
+              <div class="vis-property" data-property="waterside" onclick="flyToProperty('waterside')">
+                <div class="vis-property-row">
+                  <div>
+                    <div class="vis-property-name">Waterside Court</div>
+                    <div class="vis-property-address">Brindley Place, Birmingham B1 2JB</div>
+                  </div>
+                  <div class="vis-property-risk low">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    Low
+                  </div>
+                </div>
+                <div class="vis-property-tags">
+                  <span class="vis-property-tag leasehold">Leasehold</span>
+                  <span class="vis-property-tag retail">Retail</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Data Layers -->
+            <div class="vis-section">
+              <div class="vis-section-title">Data Layers</div>
+
+              <div class="vis-layer">
+                <div class="vis-layer-info">
+                  <div class="vis-layer-swatch" style="background:var(--accent);opacity:0.4;border:2px solid var(--accent)"></div>
+                  <div>
+                    <div class="vis-layer-name">Title Boundaries</div>
+                  </div>
+                </div>
+                <div class="vis-toggle on" data-layer="boundaries" onclick="toggleMapLayer(this)"></div>
+              </div>
+
+              <div class="vis-layer">
+                <div class="vis-layer-info">
+                  <div class="vis-layer-swatch" style="background:rgba(56,189,248,0.3);border:2px solid #38bdf8"></div>
+                  <div>
+                    <div class="vis-layer-name">Flood Risk Zones</div>
+                    <div class="vis-layer-count">2 areas identified</div>
+                  </div>
+                </div>
+                <div class="vis-toggle on" data-layer="flood" onclick="toggleMapLayer(this)"></div>
+              </div>
+
+              <div class="vis-layer">
+                <div class="vis-layer-info">
+                  <div class="vis-layer-swatch" style="background:var(--orange);border-radius:50%"></div>
+                  <div>
+                    <div class="vis-layer-name">Planning Applications</div>
+                    <div class="vis-layer-count">4 nearby</div>
+                  </div>
+                </div>
+                <div class="vis-toggle on" data-layer="planning" onclick="toggleMapLayer(this)"></div>
+              </div>
+
+              <div class="vis-layer">
+                <div class="vis-layer-info">
+                  <div class="vis-layer-swatch" style="background:var(--pink);border-radius:50%"></div>
+                  <div>
+                    <div class="vis-layer-name">Environmental Flags</div>
+                    <div class="vis-layer-count">1 flag</div>
+                  </div>
+                </div>
+                <div class="vis-toggle on" data-layer="environmental" onclick="toggleMapLayer(this)"></div>
+              </div>
+
+              <div class="vis-layer">
+                <div class="vis-layer-info">
+                  <div class="vis-layer-swatch" style="background:transparent;border:2px dashed var(--yellow)"></div>
+                  <div>
+                    <div class="vis-layer-name">Rights of Way</div>
+                  </div>
+                </div>
+                <div class="vis-toggle" data-layer="rights-of-way" onclick="toggleMapLayer(this)"></div>
+              </div>
+            </div>
+
+            <!-- Risk Summary -->
+            <div class="vis-section">
+              <div class="vis-section-title">Risk Summary</div>
+              <div class="vis-risk-grid">
+                <div class="vis-risk-card">
+                  <div class="vis-risk-card-header">
+                    <div class="vis-risk-card-icon" style="background:var(--teal-soft);color:var(--teal)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <div class="vis-risk-card-title">Flood</div>
+                  </div>
+                  <div class="vis-risk-card-value" style="color:var(--yellow)">Zone 2</div>
+                  <div class="vis-risk-card-label">Moderate probability</div>
+                </div>
+                <div class="vis-risk-card">
+                  <div class="vis-risk-card-header">
+                    <div class="vis-risk-card-icon" style="background:var(--orange-soft);color:var(--orange)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                    </div>
+                    <div class="vis-risk-card-title">Planning</div>
+                  </div>
+                  <div class="vis-risk-card-value" style="color:var(--orange)">4</div>
+                  <div class="vis-risk-card-label">Active applications</div>
+                </div>
+                <div class="vis-risk-card">
+                  <div class="vis-risk-card-header">
+                    <div class="vis-risk-card-icon" style="background:var(--pink-soft);color:var(--pink)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    </div>
+                    <div class="vis-risk-card-title">Env.</div>
+                  </div>
+                  <div class="vis-risk-card-value" style="color:var(--pink)">1</div>
+                  <div class="vis-risk-card-label">Contamination flag</div>
+                </div>
+                <div class="vis-risk-card">
+                  <div class="vis-risk-card-header">
+                    <div class="vis-risk-card-icon" style="background:var(--green-soft);color:var(--green)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <div class="vis-risk-card-title">Title</div>
+                  </div>
+                  <div class="vis-risk-card-value" style="color:var(--green)">Clear</div>
+                  <div class="vis-risk-card-label">No defects found</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map -->
+        <div class="vis-map">
+          <div class="vis-map-container" id="vis-map"></div>
+
+          <!-- Legend -->
+          <div class="map-legend">
+            <div class="map-legend-title">Legend</div>
+            <div class="map-legend-item"><div class="map-legend-color" style="background:var(--accent);opacity:0.4;border:2px solid var(--accent)"></div>Title Boundary</div>
+            <div class="map-legend-item"><div class="map-legend-color" style="background:rgba(56,189,248,0.25);border:2px solid #38bdf8"></div>Flood Zone 2</div>
+            <div class="map-legend-item"><div class="map-legend-color" style="background:rgba(56,189,248,0.45);border:2px solid #0ea5e9"></div>Flood Zone 3</div>
+            <div class="map-legend-item"><div class="map-legend-color" style="background:var(--orange);border-radius:50%"></div>Planning Application</div>
+            <div class="map-legend-item"><div class="map-legend-color" style="background:var(--pink);border-radius:50%"></div>Environmental Flag</div>
+          </div>
+
+          <!-- Property Detail Popup -->
+          <div class="map-property-popup" id="map-property-popup">
+            <div class="map-property-popup-header">
+              <div>
+                <h3 id="popup-name">Building 5, New Street Square</h3>
+                <div class="popup-address" id="popup-address">New Fetter Lane, London EC4A 3BF</div>
+              </div>
+              <button class="map-property-popup-close" onclick="closePropertyPopup()" aria-label="Close property details">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div class="map-property-popup-body" id="popup-body">
+              <div class="popup-data-row"><span class="popup-data-label">Tenure</span><span class="popup-data-value">Leasehold</span></div>
+              <div class="popup-data-row"><span class="popup-data-label">Title No.</span><span class="popup-data-value">NGL123456</span></div>
+              <div class="popup-data-row"><span class="popup-data-label">Term</span><span class="popup-data-value">25 years from 2008</span></div>
+              <div class="popup-data-row"><span class="popup-data-label">Rent</span><span class="popup-data-value">&pound;1,250,000 p.a.</span></div>
+              <div class="popup-data-row"><span class="popup-data-label">Next Review</span><span class="popup-data-value">1 Jan 2028</span></div>
+              <div class="popup-risk-badges">
+                <span class="popup-risk-badge" style="background:var(--yellow-soft);color:var(--yellow)">Flood Zone 2</span>
+                <span class="popup-risk-badge" style="background:var(--orange-soft);color:var(--orange)">2 Planning Apps</span>
+              </div>
+            </div>
+            <div class="map-property-popup-footer">
+              <button class="popup-action-btn primary" onclick="openWorkspace('resume','londale')">Open in Copilot</button>
+              <button class="popup-action-btn secondary">View Documents</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== WORKSPACE VIEW =================== -->
+    <section id="view-workspace" class="view">
+      <div class="workspace" id="workspace-container">
+
+        <!-- Property Context Bar -->
+        <div class="property-bar">
+          <div class="property-bar-left">
+            <button class="property-bar-back" onclick="navigate('home')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            </button>
+            <div class="property-bar-divider"></div>
+            <div class="property-bar-info" id="property-info">
+              <h2>New Conversation</h2>
+              <p>Upload documents or ask a question to get started</p>
+            </div>
+          </div>
+          <div class="property-bar-right" id="property-pills" style="display:none">
+            <span class="property-pill tenure">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Leasehold
+            </span>
+            <span class="property-pill">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              NGL123456
+            </span>
+            <span class="property-pill">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              25yr term
+            </span>
+            <button class="property-map-btn" onclick="toggleWorkspaceMap()" title="View on map" aria-label="Toggle property map">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Inline Map Strip (expandable) -->
+        <div class="workspace-map-strip" id="workspace-map-strip">
+          <div class="workspace-map-strip-container" id="ws-map"></div>
+          <div class="workspace-map-strip-overlay">
+            <button class="ws-map-layer-chip active" data-wslayer="boundary" onclick="toggleWsMapLayer(this)">Boundary</button>
+            <button class="ws-map-layer-chip active" data-wslayer="flood" onclick="toggleWsMapLayer(this)">Flood Risk</button>
+            <button class="ws-map-layer-chip" data-wslayer="planning" onclick="toggleWsMapLayer(this)">Planning</button>
+          </div>
+          <button class="ws-map-collapse" onclick="toggleWorkspaceMap()">Collapse map</button>
+        </div>
+
+        <!-- Document Panel -->
+        <div class="doc-panel" id="doc-panel">
+          <div class="doc-panel-header">
+            <h3>Documents</h3>
+            <span class="doc-panel-count" id="doc-count">0</span>
+          </div>
+          <div class="doc-panel-list" id="doc-list">
+            <!-- Documents inserted by JS -->
+          </div>
+          <div class="doc-panel-upload">
+            <button class="doc-upload-btn" onclick="simulateUpload()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Upload document
+            </button>
+          </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+          <div class="content-scroll" id="content-scroll">
+
+            <!-- EMPTY STATE -->
+            <div class="ws-state active" id="ws-empty">
+              <div class="empty-state">
+                <div class="upload-zone" onclick="simulateUpload()">
+                  <div class="upload-zone-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  </div>
+                  <h3>Upload your documents</h3>
+                  <p>Drag and drop files here, or <span class="browse">browse</span></p>
+                  <p style="margin-top:8px;font-size:11px;color:var(--text-muted)">Supports PDF, DOCX, and images up to 50MB</p>
+                </div>
+                <p style="color:var(--text-muted);font-size:13px;margin-bottom:24px;">or ask a general property law question below</p>
+              </div>
+            </div>
+
+            <!-- CONVERSATION STATE -->
+            <div class="ws-state" id="ws-conversation">
+              <div class="conversation" id="conversation-content" aria-live="polite" aria-label="Conversation">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+
+            <!-- REPORT PROGRESS STATE -->
+            <div class="ws-state" id="ws-report-progress">
+              <div class="report-progress" id="report-progress-content">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+
+            <!-- REPORT OUTPUT STATE -->
+            <div class="ws-state" id="ws-report-output">
+              <div class="report-output" id="report-output-content">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Input Area -->
+          <div class="input-area">
+            <div class="suggestions" id="suggestions">
+              <!-- Populated by JS -->
+            </div>
+            <div class="input-container">
+              <textarea class="input-field" id="input-field" placeholder="Ask about your documents..." rows="1" onkeydown="handleInputKey(event)" aria-label="Message to Copilot"></textarea>
+              <div class="input-actions">
+                <button class="input-action-btn" title="Attach file" aria-label="Attach file" onclick="simulateUpload()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
+                </button>
+                <button class="input-send" id="send-btn" onclick="handleSend()" aria-label="Send message">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="input-hint">Copilot may make mistakes. Always verify critical legal information.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ===================== BLUEPRINT DETAIL MODAL ===================== -->
+<div class="blueprint-detail-overlay" id="blueprint-detail-overlay" onclick="closeBlueprintDetail(event)" role="dialog" aria-modal="true" aria-label="Blueprint details">
+  <div class="blueprint-detail" onclick="event.stopPropagation()">
+    <div class="blueprint-detail-header">
+      <div>
+        <div class="blueprint-card-icon" style="background:var(--orange-soft);color:var(--orange);margin-bottom:12px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+      </div>
+      <button class="blueprint-detail-close" onclick="closeBlueprintDetail()" aria-label="Close dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="blueprint-detail-body">
+      <h2>Certificate of Title &ndash; Schedule 5</h2>
+      <p class="blueprint-detail-desc">A comprehensive review of the property title and lease terms, structured in accordance with the City of London Law Society Certificate of Title (7th Edition). Covers all key due diligence topics for commercial property transactions.</p>
+
+      <div class="blueprint-section-title">Topics Covered</div>
+      <div class="blueprint-topics">
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Date of the lease</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Demised premises</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Original parties</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Contractual term</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Current annual rent</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Rent review provisions</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Assignment provisions</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Subletting provisions</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Alterations</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>User clause</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Break clauses</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Service charge</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Insurance</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Repairing obligations</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Forfeiture provisions</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Options (renewal/purchase)</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Guarantor provisions</div>
+        <div class="blueprint-topic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Other material provisions</div>
+      </div>
+
+      <div class="blueprint-docs-note">
+        <strong>Document requirements:</strong> Upload at least a lease document. For best results, also include the official copy of the title register and any deeds of variation or supplemental documents.
+      </div>
+
+      <button class="btn-generate" onclick="startReportGeneration()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Generate Report
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MAP MODAL (enhanced with MapLibre) ===================== -->
+<div class="map-modal" id="map-modal" onclick="closeMap(event)" role="dialog" aria-modal="true" aria-label="Property location map">
+  <div class="map-card" onclick="event.stopPropagation()">
+    <div class="map-card-header">
+      <h3>Property Location &mdash; New Street Square</h3>
+      <button class="blueprint-detail-close" onclick="closeMap()" aria-label="Close map">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="map-modal-content">
+      <div class="map-modal-map">
+        <div class="map-modal-map-container" id="modal-map"></div>
+      </div>
+      <div class="map-modal-sidebar">
+        <div class="map-modal-sidebar-title">Location Risks</div>
+        <div class="map-modal-risk-item">
+          <div class="map-modal-risk-dot" style="background:#38bdf8"></div>
+          <div class="map-modal-risk-text">Flood Risk</div>
+          <span class="map-modal-risk-badge" style="background:var(--yellow-soft);color:var(--yellow)">Zone 2</span>
+        </div>
+        <div class="map-modal-risk-item">
+          <div class="map-modal-risk-dot" style="background:var(--orange)"></div>
+          <div class="map-modal-risk-text">Planning (200m)</div>
+          <span class="map-modal-risk-badge" style="background:var(--orange-soft);color:var(--orange)">2</span>
+        </div>
+        <div class="map-modal-risk-item">
+          <div class="map-modal-risk-dot" style="background:var(--green)"></div>
+          <div class="map-modal-risk-text">Environmental</div>
+          <span class="map-modal-risk-badge" style="background:var(--green-soft);color:var(--green)">Clear</span>
+        </div>
+        <div class="map-modal-risk-item">
+          <div class="map-modal-risk-dot" style="background:var(--green)"></div>
+          <div class="map-modal-risk-text">Contamination</div>
+          <span class="map-modal-risk-badge" style="background:var(--green-soft);color:var(--green)">Clear</span>
+        </div>
+        <div style="border-top:1px solid var(--border-subtle);margin-top:8px;padding-top:12px;">
+          <div class="map-modal-sidebar-title">Nearby</div>
+          <div style="font-size:12px;color:var(--text-secondary);padding:4px 0">
+            <div style="margin-bottom:6px"><strong style="color:var(--text)">Chancery Lane</strong> station &middot; 0.2 mi</div>
+            <div style="margin-bottom:6px"><strong style="color:var(--text)">City Thameslink</strong> station &middot; 0.3 mi</div>
+            <div><strong style="color:var(--text)">Royal Courts of Justice</strong> &middot; 0.4 mi</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="map-card-footer">
+      <strong>8th Floor, Building 5, New Street Square</strong>
+      <span>New Fetter Lane, London EC4A 3BF &middot; 51.5175&deg;N, 0.1075&deg;W</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================
+// STATE
+// =========================================================
+const state = {
+  currentView: 'home',
+  workspaceMode: null,
+  documentsLoaded: false,
+  conversationStarted: false,
+  visMapInitialised: false,
+  modalMapInitialised: false,
+  wsMapInitialised: false,
+  wsMapExpanded: false,
+};
+
+// Map instances
+let visMap = null;
+let modalMap = null;
+let wsMap = null;
+
+// =========================================================
+// THEME
+// =========================================================
+function toggleTheme() {
+  const html = document.documentElement;
+  const newTheme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  html.dataset.theme = newTheme;
+  // Update all map tile styles (setStyle removes layers, so re-add them)
+  const style = getMapStyle();
+  if (visMap) {
+    visMap.setStyle(style);
+    visMap.once('style.load', () => { addPropertyLayers(visMap); addPropertyMarkers(visMap); });
+  }
+  if (modalMap) {
+    modalMap.setStyle(style);
+    modalMap.once('style.load', () => {
+      const p = PROPERTIES.nss;
+      modalMap.addSource('modal-boundary', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [p.boundary] } } });
+      modalMap.addLayer({ id: 'modal-boundary-fill', type: 'fill', source: 'modal-boundary', paint: { 'fill-color': '#4361ee', 'fill-opacity': 0.2 } });
+      modalMap.addLayer({ id: 'modal-boundary-line', type: 'line', source: 'modal-boundary', paint: { 'line-color': '#4361ee', 'line-width': 2 } });
+      modalMap.addSource('modal-flood', { type: 'geojson', data: FLOOD_ZONE_2 });
+      modalMap.addLayer({ id: 'modal-flood-fill', type: 'fill', source: 'modal-flood', paint: { 'fill-color': '#38bdf8', 'fill-opacity': 0.1 } });
+      const el = document.createElement('div');
+      el.style.cssText = 'width:24px;height:24px;background:#4361ee;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+      new maplibregl.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(modalMap);
+    });
+  }
+  if (wsMap) {
+    wsMap.setStyle(style);
+    wsMap.once('style.load', () => {
+      const p = PROPERTIES.nss;
+      wsMap.addSource('ws-boundary', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [p.boundary] } } });
+      wsMap.addLayer({ id: 'ws-boundary-fill', type: 'fill', source: 'ws-boundary', paint: { 'fill-color': '#4361ee', 'fill-opacity': 0.15 } });
+      wsMap.addLayer({ id: 'ws-boundary-line', type: 'line', source: 'ws-boundary', paint: { 'line-color': '#4361ee', 'line-width': 2, 'line-dasharray': [2, 1] } });
+      wsMap.addSource('ws-flood', { type: 'geojson', data: FLOOD_ZONE_2 });
+      wsMap.addLayer({ id: 'ws-flood-fill', type: 'fill', source: 'ws-flood', paint: { 'fill-color': '#38bdf8', 'fill-opacity': 0.1 } });
+      wsMap.addLayer({ id: 'ws-flood-line', type: 'line', source: 'ws-flood', paint: { 'line-color': '#38bdf8', 'line-width': 1.5, 'line-dasharray': [4, 2] } });
+      wsMap.addSource('ws-planning', { type: 'geojson', data: { type: 'FeatureCollection', features: PLANNING_APPS.features.filter(f => f.geometry.coordinates[0] > -0.2 && f.geometry.coordinates[0] < 0) } });
+      wsMap.addLayer({ id: 'ws-planning-circles', type: 'circle', source: 'ws-planning', paint: { 'circle-radius': 6, 'circle-color': '#ff6b2c', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }, layout: { visibility: 'none' } });
+      const el = document.createElement('div');
+      el.style.cssText = 'width:24px;height:24px;background:#4361ee;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+      new maplibregl.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(wsMap);
+    });
+  }
+}
+
+// =========================================================
+// NAVIGATION
+// =========================================================
+function navigate(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + viewId).classList.add('active');
+
+  document.querySelectorAll('.sidebar-nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.view === viewId);
+  });
+
+  state.currentView = viewId;
+
+  // Init visualiser map when first navigated
+  if (viewId === 'visualiser' && !state.visMapInitialised) {
+    setTimeout(initVisualiserMap, 100);
+  }
+}
+
+document.querySelectorAll('.sidebar-nav-item[data-view]').forEach(item => {
+  item.addEventListener('click', () => navigate(item.dataset.view));
+  item.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(item.dataset.view); }
+  });
+});
+
+// =========================================================
+// WORKSPACE
+// =========================================================
+function openWorkspace(mode, projectId) {
+  state.workspaceMode = mode;
+  const container = document.getElementById('workspace-container');
+
+  // Reset states
+  document.querySelectorAll('.ws-state').forEach(s => s.classList.remove('active'));
+  document.getElementById('doc-list').innerHTML = '';
+  document.getElementById('conversation-content').innerHTML = '';
+  document.getElementById('doc-count').textContent = '0';
+  state.documentsLoaded = false;
+  state.conversationStarted = false;
+  // Collapse workspace map strip
+  state.wsMapExpanded = false;
+  document.getElementById('workspace-map-strip').classList.remove('expanded');
+
+  if (mode === 'new') {
+    container.classList.add('no-docs');
+    document.getElementById('ws-empty').classList.add('active');
+    document.getElementById('property-info').innerHTML = '<h2>New Conversation</h2><p>Upload documents or ask a question to get started</p>';
+    document.getElementById('property-pills').style.display = 'none';
+    setSuggestions([
+      'What is the difference between freehold and leasehold?',
+      'What are break clauses in a commercial lease?',
+      'Explain restrictive covenants',
+    ]);
+  } else if (mode === 'resume') {
+    loadResumedConversation(projectId);
+  } else if (mode === 'report') {
+    loadReportWorkspace();
+  }
+
+  navigate('workspace');
+}
+
+function setSuggestions(items) {
+  const el = document.getElementById('suggestions');
+  el.innerHTML = items.map(text =>
+    `<button class="suggestion-chip" onclick="handleSuggestionClick(this)">\
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>\
+      ${text}</button>`
+  ).join('');
+}
+
+// =========================================================
+// DOCUMENT UPLOAD SIMULATION
+// =========================================================
+function simulateUpload() {
+  if (state.documentsLoaded) return;
+  state.documentsLoaded = true;
+
+  const container = document.getElementById('workspace-container');
+  container.classList.remove('no-docs');
+
+  // Update property bar
+  document.getElementById('property-info').innerHTML =
+    '<h2>8th Floor, Building 5, New Street Square</h2><p>New Fetter Lane, London EC4A 3BF</p>';
+  document.getElementById('property-pills').style.display = 'flex';
+
+  // Add documents
+  const docs = [
+    { name: 'Lease', date: '6 June 2008', type: 'lease', extracts: '42 extracts', parties: 'City of London Real Property Co. / Taylor Wessing LLP' },
+    { name: 'Deed of Variation', date: '31 March 2016', type: 'deed', extracts: '8 extracts', parties: 'Varies rent review terms' },
+    { name: 'Official Copy of Title Register', date: 'NGL123456', type: 'title', extracts: '3 entries', parties: 'Leasehold title' },
+  ];
+
+  const docList = document.getElementById('doc-list');
+  docs.forEach((doc, i) => {
+    const div = document.createElement('div');
+    div.className = 'doc-item animate-in';
+    div.style.animationDelay = (i * 0.1) + 's';
+    div.innerHTML = `
+      <div class="doc-item-header">
+        <div class="doc-item-icon ${doc.type}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div>
+          <div class="doc-item-name">${doc.name}</div>
+          <div class="doc-item-date">${doc.date}</div>
+        </div>
+      </div>
+      <div class="doc-item-meta">
+        <span class="doc-item-tag ai">${doc.extracts}</span>
+        <span class="doc-item-tag">${doc.parties}</span>
+      </div>
+    `;
+    docList.appendChild(div);
+  });
+
+  document.getElementById('doc-count').textContent = '3';
+
+  // Show conversation state
+  document.querySelectorAll('.ws-state').forEach(s => s.classList.remove('active'));
+  document.getElementById('ws-conversation').classList.add('active');
+
+  setSuggestions([
+    'What is the current ground rent under this lease?',
+    'Summarise the assignment provisions',
+    'Are there any break clauses?',
+    'Generate a Certificate of Title report',
+  ]);
+
+  document.getElementById('input-field').placeholder = 'Ask about your documents...';
+}
+
+// =========================================================
+// CONVERSATION HANDLING
+// =========================================================
+function handleInputKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    handleSend();
+  }
+}
+
+function handleSuggestionClick(el) {
+  document.getElementById('input-field').value = el.textContent.trim();
+  handleSend();
+}
+
+function handleSend() {
+  const input = document.getElementById('input-field');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  if (!state.documentsLoaded) {
+    simulateUpload();
+    setTimeout(() => addUserMessage(text), 600);
+  } else {
+    addUserMessage(text);
+  }
+}
+
+function addUserMessage(text) {
+  state.conversationStarted = true;
+  document.querySelectorAll('.ws-state').forEach(s => s.classList.remove('active'));
+  document.getElementById('ws-conversation').classList.add('active');
+
+  const conv = document.getElementById('conversation-content');
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message animate-in';
+  msgDiv.innerHTML = `
+    <div class="message-user">
+      <div class="message-avatar user">TR</div>
+      <div class="message-content">
+        <div class="message-name">Tommy Robinson <span class="label">just now</span></div>
+        <div class="message-text"><p>${escapeHtml(text)}</p></div>
+      </div>
+    </div>
+  `;
+  conv.appendChild(msgDiv);
+
+  // Simulate AI response
+  setTimeout(() => addAIResponse(text), 400);
+  scrollContentToBottom();
+}
+
+function addAIResponse(userText) {
+  const conv = document.getElementById('conversation-content');
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message animate-in';
+
+  // Mark documents as cited
+  document.querySelectorAll('.doc-item').forEach((d, i) => {
+    if (i < 2) d.classList.add('cited');
+  });
+
+  msgDiv.innerHTML = `
+    <div class="message-user">
+      <div class="message-avatar ai">
+        <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" fill="white" opacity="0.9"/></svg>
+      </div>
+      <div class="message-content">
+        <div class="message-name">Copilot <span class="label">just now</span></div>
+
+        <div class="reasoning-timeline">
+          <button class="reasoning-toggle" onclick="toggleReasoning(this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            6 steps completed
+          </button>
+          <div class="reasoning-steps" id="reasoning-steps">
+            <div class="reasoning-step">
+              <div class="reasoning-step-icon done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="reasoning-step-content">
+                <div class="reasoning-step-label">Thought</div>
+                <div class="reasoning-step-detail">I will use the enhanced minimap to locate clauses related to assignment in the lease and provide a detailed summary of the assignment provisions.</div>
+              </div>
+            </div>
+            <div class="reasoning-step">
+              <div class="reasoning-step-icon done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="reasoning-step-content">
+                <div class="reasoning-step-label">Reviewed documents</div>
+                <a class="reasoning-step-link">Lease (06-06-2008)</a>
+              </div>
+            </div>
+            <div class="reasoning-step">
+              <div class="reasoning-step-icon done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="reasoning-step-content">
+                <div class="reasoning-step-label">Thought</div>
+                <div class="reasoning-step-detail">I have located the assignment provisions in the lease and will retrieve the relevant extracts to summarise them.</div>
+              </div>
+            </div>
+            <div class="reasoning-step">
+              <div class="reasoning-step-icon done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="reasoning-step-content">
+                <div class="reasoning-step-label">Retrieved extracts</div>
+                <a class="reasoning-step-link">Lease (06-06-2008) Extract 42: Assignments</a>
+                <a class="reasoning-step-link">Lease (06-06-2008) Extract 43: Assignment Conditions and Tenant's Rights</a>
+              </div>
+            </div>
+            <div class="reasoning-step">
+              <div class="reasoning-step-icon done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="reasoning-step-content">
+                <div class="reasoning-step-label">Read extracts</div>
+              </div>
+            </div>
+            <div class="reasoning-step">
+              <div class="reasoning-step-icon done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="reasoning-step-content">
+                <div class="reasoning-step-label">Thought</div>
+                <div class="reasoning-step-detail">I have gathered the details on the assignment provisions from the lease and am ready to summarise them.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message-text">
+          <p>The lease contains the following assignment provisions:</p>
+          <p><strong>Permitted Assignments</strong><br>The tenant may assign the whole of the premises with the prior written consent of the landlord, such consent not to be unreasonably withheld or delayed.<span class="citation" title="Lease, Extract 42: Assignments, Clause 4.18">1</span></p>
+          <p><strong>Conditions for Assignment</strong><br>The landlord's consent is subject to the following conditions:<span class="citation" title="Lease, Extract 43: Assignment Conditions, Clause 4.19">2</span></p>
+          <ol>
+            <li>The assignee enters into a direct covenant with the landlord to observe and perform the tenant's covenants</li>
+            <li>If reasonably required, the assignee provides a guarantor acceptable to the landlord</li>
+            <li>The assignee demonstrates financial standing equivalent to or exceeding that of the current tenant</li>
+          </ol>
+          <p><strong>Prohibited Assignments</strong><br>The tenant may not assign part only of the premises.<span class="citation" title="Lease, Extract 42: Assignments, Clause 4.18.3">1</span></p>
+          <p><strong>Authorised Guarantee Agreement</strong><br>The assigning tenant must enter into an AGA in the form prescribed by the lease.<span class="citation" title="Lease, Extract 43: AGA provisions, Clause 4.20">3</span></p>
+          <p>The deed of variation dated 31 March 2016 does not modify these assignment provisions.</p>
+        </div>
+
+        <div class="sources-panel">
+          <div class="sources-title">Sources</div>
+          <div class="source-item"><span class="source-num">1</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extract 42: Assignments, Clause 4.18</span></div>
+          <div class="source-item"><span class="source-num">2</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extract 43: Assignment Conditions and Tenant's Rights, Clause 4.19</span></div>
+          <div class="source-item"><span class="source-num">3</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extract 43: AGA provisions, Clause 4.20</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  conv.appendChild(msgDiv);
+
+  setSuggestions([
+    'Review subletting provisions',
+    'Check break clauses',
+    'What are the repairing obligations?',
+    'Generate full Certificate of Title',
+  ]);
+
+  scrollContentToBottom();
+}
+
+function toggleReasoning(btn) {
+  btn.classList.toggle('expanded');
+  const steps = btn.nextElementSibling;
+  steps.classList.toggle('visible');
+}
+
+// =========================================================
+// RESUMED CONVERSATION
+// =========================================================
+function loadResumedConversation(projectId) {
+  const container = document.getElementById('workspace-container');
+  container.classList.remove('no-docs');
+  state.documentsLoaded = true;
+
+  const projects = {
+    abc: {
+      name: 'ABC Acquisition', address: 'Multiple properties — Portfolio review',
+      docs: [
+        { name: 'Acquisition Agreement', date: '4 January 2024', type: 'lease', extracts: '56 extracts', parties: 'ABC Holdings / Vendor Group' },
+        { name: 'Title Register — Unit 1', date: 'NGL334455', type: 'title', extracts: '6 entries', parties: 'Freehold title' },
+        { name: 'Environmental Report', date: '12 December 2023', type: 'deed', extracts: '14 extracts', parties: 'Phase 1 assessment' },
+      ],
+    },
+    greenlock: {
+      name: 'Greenlock Development', address: '14–18 Greenlock Road, London SE18 5QZ',
+      docs: [
+        { name: 'Lease', date: '9 August 2019', type: 'lease', extracts: '44 extracts', parties: 'Greenwich Estates / Greenlock Ltd' },
+        { name: 'Planning Permission', date: '22 November 2023', type: 'deed', extracts: '12 extracts', parties: 'LPA ref: 23/1847/F' },
+        { name: 'Title Register', date: 'SGL998877', type: 'title', extracts: '5 entries', parties: 'Freehold title' },
+      ],
+    },
+    londale: {
+      name: '25 Londale Street', address: '25 Londale Street, Manchester M4 6AQ',
+      docs: [
+        { name: 'Lease', date: '12 March 2015', type: 'lease', extracts: '38 extracts', parties: 'Bruntwood Works / Londale Consulting' },
+        { name: 'Deed of Variation', date: '7 June 2021', type: 'deed', extracts: '6 extracts', parties: 'Varies service charge cap' },
+        { name: 'Title Register', date: 'MAN789012', type: 'title', extracts: '4 entries', parties: 'Leasehold title' },
+      ],
+    },
+  };
+
+  const proj = projects[projectId] || projects.londale;
+  document.getElementById('property-info').innerHTML =
+    `<h2>${proj.name}</h2><p>${proj.address}</p>`;
+  document.getElementById('property-pills').style.display = 'flex';
+
+  // Add documents — mark some as cited
+  const docList = document.getElementById('doc-list');
+  proj.docs.forEach((doc, i) => {
+    const div = document.createElement('div');
+    div.className = 'doc-item' + (i < 2 ? ' cited' : '');
+    div.innerHTML = `
+      <div class="doc-item-header">
+        <div class="doc-item-icon ${doc.type}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div>
+          <div class="doc-item-name">${doc.name}</div>
+          <div class="doc-item-date">${doc.date}</div>
+        </div>
+      </div>
+      <div class="doc-item-meta">
+        <span class="doc-item-tag ai">${doc.extracts}</span>
+        <span class="doc-item-tag">${doc.parties}</span>
+      </div>
+    `;
+    docList.appendChild(div);
+  });
+  document.getElementById('doc-count').textContent = String(proj.docs.length);
+
+  // Show conversation
+  document.querySelectorAll('.ws-state').forEach(s => s.classList.remove('active'));
+  document.getElementById('ws-conversation').classList.add('active');
+
+  const conv = document.getElementById('conversation-content');
+  conv.innerHTML = buildResumedConversation(projectId);
+
+  setSuggestions([
+    'What are the service charge provisions?',
+    'Review the repairing obligations',
+    'Are there any restrictions on alterations?',
+    'Generate a Lease Summary Report',
+  ]);
+
+  // Scroll to bottom so user sees where they left off
+  setTimeout(() => {
+    const el = document.getElementById('content-scroll');
+    el.scrollTop = el.scrollHeight;
+  }, 100);
+}
+
+function buildResumedConversation(projectId) {
+  // --- Helpers ---
+  const userMsg = (text, time) => `
+    <div class="message">
+      <div class="message-user">
+        <div class="message-avatar user" aria-hidden="true">TR</div>
+        <div class="message-content">
+          <div class="message-name">Tommy Robinson <span class="label">${time}</span></div>
+          <div class="message-text"><p>${text}</p></div>
+        </div>
+      </div>
+    </div>`;
+
+  const aiAvatar = `<div class="message-avatar ai" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" fill="white" opacity="0.9"/></svg></div>`;
+
+  const reasoningBlock = (steps, count) => `
+    <div class="reasoning-timeline">
+      <button class="reasoning-toggle" onclick="toggleReasoning(this)" aria-expanded="false" aria-label="Show ${count} reasoning steps">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        ${count} steps completed
+      </button>
+      <div class="reasoning-steps">${steps}</div>
+    </div>`;
+
+  const step = (label, detail, links) => `
+    <div class="reasoning-step">
+      <div class="reasoning-step-icon done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="reasoning-step-content">
+        <div class="reasoning-step-label">${label}</div>
+        ${detail ? `<div class="reasoning-step-detail">${detail}</div>` : ''}
+        ${links ? links.map(l => `<a class="reasoning-step-link">${l}</a>`).join('') : ''}
+      </div>
+    </div>`;
+
+  // --- Build the conversation ---
+  return `
+    <!-- Session Banner -->
+    <div class="session-banner" role="status">
+      <div class="session-banner-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div class="session-banner-text">
+        <div class="session-banner-title">Session resumed</div>
+        <div class="session-banner-detail">You last worked on this conversation yesterday at 3:52 PM. 3 documents loaded, 4 questions answered.</div>
+      </div>
+    </div>
+
+    <!-- Exchange 1 — Key terms overview -->
+    <div class="timestamp-divider" aria-label="Yesterday, 2:30 PM">Yesterday, 2:30 PM</div>
+
+    ${userMsg('Summarise the key terms of this lease', 'Yesterday, 2:30 PM')}
+
+    <div class="message">
+      <div class="message-user">
+        ${aiAvatar}
+        <div class="message-content">
+          <div class="message-name">Copilot <span class="label">Yesterday, 2:31 PM</span></div>
+          ${reasoningBlock(
+            step('Reviewed documents', null, ['Lease (12-03-2015)']) +
+            step('Thought', 'I will scan the lease to extract the principal commercial and legal terms and present them as a summary.') +
+            step('Retrieved extracts', null, ['Extract 0: Prescribed Clauses', 'Extract 3: Parties and Definitions', 'Extract 5: Rent', 'Extract 8: Term']) +
+            step('Read extracts') +
+            step('Thought', 'I have gathered the key terms and will present a structured summary.'),
+            '5'
+          )}
+          <div class="message-text">
+            <p>Here is a summary of the key terms of the lease dated 12 March 2015:</p>
+            <table class="inline-summary">
+              <thead><tr><th scope="col">Term</th><th scope="col">Detail</th></tr></thead>
+              <tbody>
+                <tr><td>Premises</td><td>3rd &amp; 4th floors, 25 Londale Street, Manchester M4 6AQ<span class="citation" title="Lease, Extract 0: Prescribed Clauses">1</span></td></tr>
+                <tr><td>Landlord</td><td>Bruntwood Works Limited</td></tr>
+                <tr><td>Tenant</td><td>Londale Consulting LLP</td></tr>
+                <tr><td>Term</td><td>10 years from 12 March 2015, expiring 11 March 2025<span class="citation" title="Lease, Extract 8: Term">2</span></td></tr>
+                <tr><td>Current Rent</td><td>&pound;875,000 per annum (exclusive of VAT)<span class="citation" title="Lease, Extract 5: Rent">3</span></td></tr>
+                <tr><td>Rent Review</td><td>5-yearly, upward-only, open market value</td></tr>
+                <tr><td>Break Clause</td><td>Tenant-only, 12 March 2022 (exercised or lapsed)</td></tr>
+                <tr><td>Permitted Use</td><td>Offices within Class E(g)(i)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="sources-panel">
+            <div class="sources-title">Sources</div>
+            <div class="source-item"><span class="source-num">1</span><span class="source-text"><span class="source-doc">Lease (12-03-2015)</span>, Extract 0: Prescribed Clauses (LR1–LR12)</span></div>
+            <div class="source-item"><span class="source-num">2</span><span class="source-text"><span class="source-doc">Lease (12-03-2015)</span>, Extract 8: Term and Commencement, Clause 2.1</span></div>
+            <div class="source-item"><span class="source-num">3</span><span class="source-text"><span class="source-doc">Lease (12-03-2015)</span>, Extract 5: Rent Provisions, Clause 3.1</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exchange 2 — Ground rent detail -->
+    <div class="timestamp-divider" aria-label="Yesterday, 3:15 PM">Yesterday, 3:15 PM</div>
+
+    ${userMsg('What is the current ground rent and when is the next rent review?', 'Yesterday, 3:15 PM')}
+
+    <div class="message">
+      <div class="message-user">
+        ${aiAvatar}
+        <div class="message-content">
+          <div class="message-name">Copilot <span class="label">Yesterday, 3:16 PM</span></div>
+          ${reasoningBlock(
+            step('Reviewed documents', null, ['Lease (12-03-2015)', 'Deed of Variation (07-06-2021)']) +
+            step('Retrieved extracts', null, ['Lease Extract 5: Rent', 'Lease Extract 12: Rent Review', 'Deed of Variation Clause 3: Varied Rent']) +
+            step('Read extracts') +
+            step('Thought', 'The deed of variation amends the rent amount. I will cross-reference both documents.'),
+            '4'
+          )}
+          <div class="message-text">
+            <p>The current annual rent is <strong>&pound;875,000</strong>, payable quarterly in advance on the usual quarter days (25 March, 24 June, 29 September, 25 December).<span class="citation" title="Lease, Extract 5: Rent, Clause 3.1">1</span></p>
+            <p>The deed of variation dated 7 June 2021 <strong>did not alter the base rent</strong>, but varied the service charge cap from 105% to 110% of the prior year's controllable costs.<span class="citation" title="Deed of Variation, Clause 3">2</span></p>
+            <p>Rent reviews take place at <strong>five-yearly intervals</strong>. The first review was on 12 March 2020. The next review date is <strong>12 March 2025</strong>, which coincides with the lease expiry — so in practice, the review is relevant only if the lease is renewed or extended.<span class="citation" title="Lease, Schedule 4: Rent Review">3</span></p>
+          </div>
+          <div class="sources-panel">
+            <div class="sources-title">Sources</div>
+            <div class="source-item"><span class="source-num">1</span><span class="source-text"><span class="source-doc">Lease (12-03-2015)</span>, Extract 5: Rent Provisions, Clause 3.1</span></div>
+            <div class="source-item"><span class="source-num">2</span><span class="source-text"><span class="source-doc">Deed of Variation (07-06-2021)</span>, Clause 3: Varied Service Charge</span></div>
+            <div class="source-item"><span class="source-num">3</span><span class="source-text"><span class="source-doc">Lease (12-03-2015)</span>, Schedule 4: Rent Review Provisions</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exchange 3 — Assignment provisions -->
+    ${userMsg('Can the tenant assign the lease? What conditions apply?', 'Yesterday, 3:32 PM')}
+
+    <div class="message">
+      <div class="message-user">
+        ${aiAvatar}
+        <div class="message-content">
+          <div class="message-name">Copilot <span class="label">Yesterday, 3:33 PM</span></div>
+          ${reasoningBlock(
+            step('Reviewed documents', null, ['Lease (12-03-2015)']) +
+            step('Thought', 'I will locate the alienation provisions and summarise the assignment conditions.') +
+            step('Retrieved extracts', null, ['Extract 28: Alienation', 'Extract 29: Assignment Conditions']) +
+            step('Read extracts') +
+            step('Thought', 'I have gathered the assignment provisions and will present a structured summary.'),
+            '5'
+          )}
+          <div class="message-text">
+            <p>Yes. The tenant may assign the <strong>whole</strong> of the premises with the landlord's prior written consent, not to be unreasonably withheld or delayed.<span class="citation" title="Lease, Extract 28: Alienation, Clause 4.15">1</span></p>
+            <p><strong>Conditions for consent:</strong></p>
+            <ol>
+              <li>The proposed assignee must demonstrate financial standing of at least <strong>3x the annual rent</strong></li>
+              <li>The assignee must enter into a direct covenant with the landlord</li>
+              <li>The outgoing tenant must enter into an <strong>Authorised Guarantee Agreement</strong> (AGA)</li>
+              <li>All arrears of rent and other sums must be paid in full before completion</li>
+            </ol>
+            <p><strong>Part assignment</strong> of the premises is <strong>prohibited</strong>.<span class="citation" title="Lease, Extract 28: Alienation, Clause 4.15.4">1</span></p>
+            <p><strong>Subletting</strong> of the whole is permitted with consent; subletting of part is <strong>prohibited</strong>.<span class="citation" title="Lease, Extract 29: Subletting, Clause 4.16">2</span></p>
+          </div>
+          <div class="sources-panel">
+            <div class="sources-title">Sources</div>
+            <div class="source-item"><span class="source-num">1</span><span class="source-text"><span class="source-doc">Lease (12-03-2015)</span>, Extract 28: Alienation, Clauses 4.15–4.15.4</span></div>
+            <div class="source-item"><span class="source-num">2</span><span class="source-text"><span class="source-doc">Lease (12-03-2015)</span>, Extract 29: Subletting Provisions, Clause 4.16</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exchange 4 — Last question before leaving -->
+    ${userMsg('The lease term expires in March 2025. Are there any renewal or holding-over provisions?', 'Yesterday, 3:48 PM')}
+
+    <div class="message">
+      <div class="message-user">
+        ${aiAvatar}
+        <div class="message-content">
+          <div class="message-name">Copilot <span class="label">Yesterday, 3:49 PM</span></div>
+          ${reasoningBlock(
+            step('Reviewed documents', null, ['Lease (12-03-2015)', 'Title Register (MAN789012)']) +
+            step('Retrieved extracts', null, ['Extract 8: Term', 'Extract 35: Holding Over', 'Title Register Entry 2: Lease details']) +
+            step('Read extracts') +
+            step('Thought', 'The lease is contracted out of the 1954 Act. I will explain the implications for renewal.'),
+            '4'
+          )}
+          <div class="message-text">
+            <p>The lease is <strong>contracted out</strong> of the security of tenure provisions under the Landlord and Tenant Act 1954, sections 24–28.<span class="citation" title="Lease, Extract 8: Term, Clause 2.4">1</span> This means the tenant has <strong>no statutory right to renew</strong> at expiry.</p>
+            <p><strong>Holding over:</strong> If the tenant remains in occupation after 11 March 2025 without a new lease being granted, they will be a <strong>tenant at will</strong>. The lease contains no express holding-over provisions, so the common law position applies — the landlord may terminate the tenancy at will at any time by giving notice.<span class="citation" title="Lease, Extract 35: Holding Over">2</span></p>
+            <p><strong>Practical implication:</strong> If the tenant wishes to remain beyond March 2025, they will need to negotiate a new lease or a licence to occupy with the landlord. The title register confirms the current lease term and contracted-out status.<span class="citation" title="Title Register, Entry 2">3</span></p>
+          </div>
+          <div class="sources-panel">
+            <div class="sources-title">Sources</div>
+            <div class="source-item"><span class="source-num">1</span><span class="source-text"><span class="source-doc">Lease (12-03-2015)</span>, Extract 8: Term, Clause 2.4 — Contracting Out Declaration</span></div>
+            <div class="source-item"><span class="source-num">2</span><span class="source-text"><span class="source-doc">Lease (12-03-2015)</span>, Extract 35: Holding Over and Termination</span></div>
+            <div class="source-item"><span class="source-num">3</span><span class="source-text"><span class="source-doc">Title Register (MAN789012)</span>, Entry 2: Registered Lease Details</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Proactive Copilot suggestion -->
+    <div class="copilot-proactive animate-in" style="animation-delay:0.3s">
+      <div class="copilot-proactive-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Copilot Suggestion</span>
+      </div>
+      <div class="copilot-proactive-body">
+        <p>Based on your review so far, you've covered rent, assignment, and expiry. There are several key topics remaining that are typically required for a full due diligence report on this lease:</p>
+        <div class="copilot-proactive-actions">
+          <button class="copilot-proactive-action" onclick="handleSuggestionClick(this)" aria-label="Review service charge provisions">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Service charge provisions
+          </button>
+          <button class="copilot-proactive-action" onclick="handleSuggestionClick(this)" aria-label="Review repairing obligations">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Repairing obligations
+          </button>
+          <button class="copilot-proactive-action" onclick="handleSuggestionClick(this)" aria-label="Review alterations restrictions">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Alterations restrictions
+          </button>
+          <button class="copilot-proactive-action primary" onclick="handleSuggestionClick(this)" aria-label="Generate a Lease Summary Report">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Generate Lease Summary Report
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// =========================================================
+// REPORT GENERATION
+// =========================================================
+function startReportGeneration() {
+  closeBlueprintDetail();
+
+  // Ensure we have documents loaded
+  if (!state.documentsLoaded) {
+    openWorkspace('new');
+    setTimeout(() => {
+      simulateUpload();
+      setTimeout(() => runReportProgress(), 600);
+    }, 300);
+  } else {
+    navigate('workspace');
+    runReportProgress();
+  }
+}
+
+function runReportProgress() {
+  document.querySelectorAll('.ws-state').forEach(s => s.classList.remove('active'));
+  document.getElementById('ws-report-progress').classList.add('active');
+  document.getElementById('suggestions').innerHTML = '';
+
+  const topics = [
+    'Date of the lease', 'Description of demised premises', 'Original parties',
+    'Contractual term', 'Current annual rent', 'Rent review provisions',
+    'Assignment provisions', 'Subletting provisions', 'Alterations',
+    'Break clauses', 'Service charge provisions', 'Insurance',
+    'Repairing obligations', 'Forfeiture provisions',
+  ];
+
+  const progressEl = document.getElementById('report-progress-content');
+  progressEl.innerHTML = `
+    <div class="report-progress-header">
+      <h2>Generating Certificate of Title</h2>
+      <p>Analysing documents and compiling report across ${topics.length} topics...</p>
+    </div>
+    <div class="progress-bar-container"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+    <div id="progress-steps"></div>
+  `;
+
+  const stepsEl = document.getElementById('progress-steps');
+  topics.forEach((topic, i) => {
+    const step = document.createElement('div');
+    step.className = 'progress-step pending';
+    step.id = 'step-' + i;
+    step.innerHTML = `
+      <div class="progress-step-check">
+        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="progress-step-label">${topic}</div>
+    `;
+    stepsEl.appendChild(step);
+  });
+
+  // Animate progress
+  let current = 0;
+  const interval = setInterval(() => {
+    if (current > 0) {
+      const prev = document.getElementById('step-' + (current - 1));
+      prev.className = 'progress-step completed';
+    }
+    if (current < topics.length) {
+      const step = document.getElementById('step-' + current);
+      step.className = 'progress-step active';
+      document.getElementById('progress-bar').style.width = ((current + 1) / topics.length * 100) + '%';
+      current++;
+    } else {
+      clearInterval(interval);
+      setTimeout(showReportOutput, 500);
+    }
+  }, 300);
+}
+
+function showReportOutput() {
+  document.querySelectorAll('.ws-state').forEach(s => s.classList.remove('active'));
+  document.getElementById('ws-report-output').classList.add('active');
+
+  const outputEl = document.getElementById('report-output-content');
+  outputEl.innerHTML = `
+    <div class="report-header animate-in">
+      <div class="report-title-section">
+        <h2>Certificate of Title &ndash; Schedule 5</h2>
+        <p>Generated from 3 documents &middot; 14 topics &middot; Just now</p>
+      </div>
+      <div class="report-actions">
+        <button class="btn-outline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export to Word
+        </button>
+        <button class="btn-outline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Share
+        </button>
+      </div>
+    </div>
+
+    <table class="report-table animate-in" style="animation-delay:0.1s">
+      <thead><tr><th scope="col">Question</th><th scope="col">Answer</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Date</td>
+          <td>The date of the lease is <strong>6 June 2008</strong>.<span class="citation" title="Lease Extract 0">1</span></td>
+        </tr>
+        <tr>
+          <td>Demised premises</td>
+          <td>
+            <strong>Address of the premises:</strong> Eighth floor, Building 5, New Street Square, New Fetter Lane, London EC4.<br><br>
+            <strong>Extent of the demise:</strong>
+            <ul>
+              <li>Internal surfacing materials and finishes on walls, floors, and ceilings</li>
+              <li>Doors within the premises</li>
+              <li>Glass in certain doors and partitions</li>
+              <li>Landlord's plant, fixtures, and fittings within the premises</li>
+              <li>Parts of non-structural walls</li>
+              <li>Conducting media exclusively serving the premises</li>
+            </ul>
+            <strong>Demise type:</strong> Internal only, excludes structural parts of the building.<span class="citation" title="Lease Extract 2, 3">2,3</span>
+          </td>
+        </tr>
+        <tr>
+          <td>Original parties</td>
+          <td>
+            <strong>1. Landlord:</strong> THE CITY OF LONDON REAL PROPERTY COMPANY LIMITED (incorporated and registered in England and Wales under company registration number 1160), with a registered office at 5 Strand, London WC2N 5AF.<br><br>
+            <strong>2. Tenant:</strong> TAYLOR WESSING LLP (a limited liability partnership formed under the Limited Liability Partnership Act 2000 and registered under number OC322935), with a registered office at Carmelite, 50 Victoria Embankment, London EC4Y 0DX.<span class="citation" title="Lease Extract 3, 4">4,5</span><br><br>
+            The deed of variation does not alter the original parties to the lease but varies other terms.
+          </td>
+        </tr>
+        <tr>
+          <td>Contractual term</td>
+          <td>The lease is granted for a term of <strong>25 years</strong> from and including 1 January 2008, expiring on 31 December 2032.<span class="citation" title="Lease Extract 1">1</span></td>
+        </tr>
+        <tr>
+          <td>Current rent</td>
+          <td>The current annual rent is <strong>&pound;1,250,000</strong>, payable quarterly in advance on the usual quarter days (25 March, 24 June, 29 September, and 25 December).<span class="citation" title="Lease Extract 5">6</span></td>
+        </tr>
+        <tr>
+          <td>Rent review</td>
+          <td>The rent is subject to review on every <strong>fifth anniversary</strong> of the term commencement date. The review mechanism is <strong>upward-only</strong> to open market rental value. The next review date is <strong>1 January 2028</strong>.<span class="citation" title="Lease Schedule 4">7</span></td>
+        </tr>
+        <tr>
+          <td>Assignment</td>
+          <td>The tenant may assign the <strong>whole</strong> of the premises with the landlord's prior written consent (not to be unreasonably withheld). The assignee must enter into a direct covenant and the assigning tenant must enter into an AGA. Part assignment is <strong>prohibited</strong>.<span class="citation" title="Lease Extract 42, 43">8</span></td>
+        </tr>
+        <tr>
+          <td>Break clauses</td>
+          <td>The tenant has a break option exercisable on <strong>1 January 2028</strong>, subject to giving not less than 12 months' prior written notice and the conditions that: (i) all rents are paid up to date; (ii) the tenant has given vacant possession; and (iii) there is no material breach of covenant.<span class="citation" title="Lease Clause 8">9</span></td>
+        </tr>
+        <tr>
+          <td>Service charge</td>
+          <td>The tenant pays a <strong>fair and reasonable proportion</strong> of the total costs and expenses incurred by the landlord in providing services to the building and estate. The landlord must provide an annual service charge certificate prepared by a qualified accountant. A cap of <strong>110%</strong> applies to controllable costs year-on-year.<span class="citation" title="Lease Schedule 5">10</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="sources-panel animate-in" style="animation-delay:0.2s;margin-top:20px">
+      <div class="sources-title">Sources referenced in this report</div>
+      <div class="source-item"><span class="source-num">1</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extract 0: Underlease Contents and Prescribed Clauses</span></div>
+      <div class="source-item"><span class="source-num">2</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extract 2: Prescribed Clauses (LR1 to LR12) and Initial Lease Details</span></div>
+      <div class="source-item"><span class="source-num">3</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extract 3: Parties and Definitions</span></div>
+      <div class="source-item"><span class="source-num">4</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extract 3: Parties, Clause 1.1</span></div>
+      <div class="source-item"><span class="source-num">5</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extract 4: Underlease Definitions (continued)</span></div>
+      <div class="source-item"><span class="source-num">6</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extract 5: Rent Provisions, Clause 3.1</span></div>
+      <div class="source-item"><span class="source-num">7</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Schedule 4: Rent Review</span></div>
+      <div class="source-item"><span class="source-num">8</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Extracts 42-43: Assignment Provisions</span></div>
+      <div class="source-item"><span class="source-num">9</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Clause 8: Break Provisions</span></div>
+      <div class="source-item"><span class="source-num">10</span><span class="source-text"><span class="source-doc">Lease (06-06-2008)</span>, Schedule 5: Service Charge</span></div>
+    </div>
+  `;
+
+  setSuggestions([
+    'Expand on the break clause conditions',
+    'Add the landlord\'s obligations section',
+    'Flag any potential risks in this report',
+    'Export to Word',
+  ]);
+
+  scrollContentToBottom();
+}
+
+// =========================================================
+// BLUEPRINT DETAIL MODAL
+// =========================================================
+function showBlueprintDetail() {
+  document.getElementById('blueprint-detail-overlay').classList.add('active');
+}
+function closeBlueprintDetail(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('blueprint-detail-overlay').classList.remove('active');
+}
+
+// =========================================================
+// MAP - SHARED DATA & HELPERS
+// =========================================================
+const PROPERTIES = {
+  nss: {
+    name: 'Building 5, New Street Square',
+    address: 'New Fetter Lane, London EC4A 3BF',
+    lng: -0.1075, lat: 51.5175,
+    tenure: 'Leasehold', title: 'NGL123456', term: '25 years from 2008',
+    rent: '£1,250,000 p.a.', review: '1 Jan 2028',
+    risks: [
+      { label: 'Flood Zone 2', color: 'var(--yellow-soft)', text: 'var(--yellow)' },
+      { label: '2 Planning Apps', color: 'var(--orange-soft)', text: 'var(--orange)' },
+    ],
+    boundary: [[-0.1085,51.5180],[-0.1065,51.5180],[-0.1065,51.5170],[-0.1085,51.5170],[-0.1085,51.5180]],
+  },
+  greenlock: {
+    name: '14–18 Greenlock Road',
+    address: 'London SE18 5QZ',
+    lng: 0.0567, lat: 51.4823,
+    tenure: 'Freehold', title: 'SGL998877', term: 'N/A (Freehold)',
+    rent: 'N/A', review: 'N/A',
+    risks: [
+      { label: 'Contamination', color: 'var(--pink-soft)', text: 'var(--pink)' },
+      { label: '1 Planning App', color: 'var(--orange-soft)', text: 'var(--orange)' },
+    ],
+    boundary: [[0.0557,51.4828],[0.0577,51.4828],[0.0577,51.4818],[0.0557,51.4818],[0.0557,51.4828]],
+  },
+  waterside: {
+    name: 'Waterside Court',
+    address: 'Brindley Place, Birmingham B1 2JB',
+    lng: -1.9120, lat: 52.4800,
+    tenure: 'Leasehold', title: 'WM445566', term: '15 years from 2018',
+    rent: '£320,000 p.a.', review: '1 Apr 2028',
+    risks: [
+      { label: 'No Issues', color: 'var(--green-soft)', text: 'var(--green)' },
+    ],
+    boundary: [[-1.9130,52.4805],[-1.9110,52.4805],[-1.9110,52.4795],[-1.9130,52.4795],[-1.9130,52.4805]],
+  },
+};
+
+// Flood risk zone (near Thames, affects New Street Square)
+const FLOOD_ZONE_2 = {
+  type: 'Feature', properties: { zone: 2 },
+  geometry: { type: 'Polygon', coordinates: [[
+    [-0.125, 51.5100], [-0.090, 51.5100], [-0.090, 51.5165],
+    [-0.100, 51.5175], [-0.115, 51.5180], [-0.125, 51.5170], [-0.125, 51.5100]
+  ]]}
+};
+const FLOOD_ZONE_3 = {
+  type: 'Feature', properties: { zone: 3 },
+  geometry: { type: 'Polygon', coordinates: [[
+    [-0.125, 51.5100], [-0.090, 51.5100], [-0.090, 51.5130],
+    [-0.125, 51.5130], [-0.125, 51.5100]
+  ]]}
+};
+
+// Planning applications (nearby points)
+const PLANNING_APPS = {
+  type: 'FeatureCollection',
+  features: [
+    { type: 'Feature', properties: { ref: 'PA/2024/1234', desc: 'Office extension, Holborn Viaduct', status: 'Pending' },
+      geometry: { type: 'Point', coordinates: [-0.1035, 51.5178] } },
+    { type: 'Feature', properties: { ref: 'PA/2024/1567', desc: 'Mixed-use redevelopment, Fetter Lane', status: 'Approved' },
+      geometry: { type: 'Point', coordinates: [-0.1090, 51.5165] } },
+    { type: 'Feature', properties: { ref: 'PA/2024/2010', desc: 'Residential conversion, Greenlock Rd', status: 'Pending' },
+      geometry: { type: 'Point', coordinates: [0.0550, 51.4830] } },
+    { type: 'Feature', properties: { ref: 'PA/2024/2345', desc: 'Retail unit signage, Brindley Place', status: 'Approved' },
+      geometry: { type: 'Point', coordinates: [-1.9135, 52.4805] } },
+  ]
+};
+
+// Environmental flags
+const ENV_FLAGS = {
+  type: 'FeatureCollection',
+  features: [
+    { type: 'Feature', properties: { type: 'Contaminated Land', desc: 'Historical industrial use - remediation required' },
+      geometry: { type: 'Point', coordinates: [0.0575, 51.4820] } },
+  ]
+};
+
+function getMapStyle() {
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  return {
+    version: 8,
+    sources: {
+      'carto': {
+        type: 'raster',
+        tiles: [isDark
+          ? 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+          : 'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png'
+        ],
+        tileSize: 256,
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+      }
+    },
+    layers: [{ id: 'carto-tiles', type: 'raster', source: 'carto', minzoom: 0, maxzoom: 19 }]
+  };
+}
+
+function addPropertyLayers(map) {
+  // Boundaries source
+  const boundaryFeatures = Object.values(PROPERTIES).map(p => ({
+    type: 'Feature',
+    properties: { name: p.name },
+    geometry: { type: 'Polygon', coordinates: [p.boundary] }
+  }));
+  map.addSource('boundaries', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: boundaryFeatures }
+  });
+  map.addLayer({
+    id: 'boundaries-fill', type: 'fill', source: 'boundaries',
+    paint: { 'fill-color': '#4361ee', 'fill-opacity': 0.15 }
+  });
+  map.addLayer({
+    id: 'boundaries-line', type: 'line', source: 'boundaries',
+    paint: { 'line-color': '#4361ee', 'line-width': 2, 'line-dasharray': [2, 1] }
+  });
+
+  // Flood zones
+  map.addSource('flood-zone-2', { type: 'geojson', data: FLOOD_ZONE_2 });
+  map.addLayer({
+    id: 'flood-zone-2-fill', type: 'fill', source: 'flood-zone-2',
+    paint: { 'fill-color': '#38bdf8', 'fill-opacity': 0.12 }
+  });
+  map.addLayer({
+    id: 'flood-zone-2-line', type: 'line', source: 'flood-zone-2',
+    paint: { 'line-color': '#38bdf8', 'line-width': 1.5, 'line-dasharray': [4, 2] }
+  });
+
+  map.addSource('flood-zone-3', { type: 'geojson', data: FLOOD_ZONE_3 });
+  map.addLayer({
+    id: 'flood-zone-3-fill', type: 'fill', source: 'flood-zone-3',
+    paint: { 'fill-color': '#0ea5e9', 'fill-opacity': 0.2 }
+  });
+  map.addLayer({
+    id: 'flood-zone-3-line', type: 'line', source: 'flood-zone-3',
+    paint: { 'line-color': '#0ea5e9', 'line-width': 1.5 }
+  });
+
+  // Planning applications
+  map.addSource('planning', { type: 'geojson', data: PLANNING_APPS });
+  map.addLayer({
+    id: 'planning-circles', type: 'circle', source: 'planning',
+    paint: { 'circle-radius': 7, 'circle-color': '#ff6b2c', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+  });
+
+  // Environmental flags
+  map.addSource('environmental', { type: 'geojson', data: ENV_FLAGS });
+  map.addLayer({
+    id: 'environmental-circles', type: 'circle', source: 'environmental',
+    paint: { 'circle-radius': 8, 'circle-color': '#f43f5e', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+  });
+
+  // Planning popups
+  map.on('click', 'planning-circles', (e) => {
+    const props = e.features[0].properties;
+    new maplibregl.Popup({ offset: 12 })
+      .setLngLat(e.lngLat)
+      .setHTML(`<div class="map-popup-name">${props.ref}</div><div class="map-popup-addr">${props.desc}</div><div class="map-popup-tags"><span class="map-popup-tag" style="background:var(--orange-soft);color:var(--orange)">${props.status}</span></div>`)
+      .addTo(map);
+  });
+
+  // Environmental popups
+  map.on('click', 'environmental-circles', (e) => {
+    const props = e.features[0].properties;
+    new maplibregl.Popup({ offset: 12 })
+      .setLngLat(e.lngLat)
+      .setHTML(`<div class="map-popup-name">${props.type}</div><div class="map-popup-addr">${props.desc}</div><div class="map-popup-tags"><span class="map-popup-tag" style="background:var(--pink-soft);color:var(--pink)">Action Required</span></div>`)
+      .addTo(map);
+  });
+
+  // Cursor changes
+  ['planning-circles', 'environmental-circles'].forEach(layer => {
+    map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
+  });
+}
+
+function addPropertyMarkers(map) {
+  Object.entries(PROPERTIES).forEach(([key, p]) => {
+    const el = document.createElement('div');
+    el.style.cssText = 'width:28px;height:28px;background:var(--accent);border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;transition:transform 0.15s;';
+    el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.2)'; });
+    el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
+    el.addEventListener('click', () => showPropertyDetail(key));
+    new maplibregl.Marker({ element: el })
+      .setLngLat([p.lng, p.lat])
+      .addTo(map);
+  });
+}
+
+// =========================================================
+// VISUALISER MAP
+// =========================================================
+function initVisualiserMap() {
+  if (state.visMapInitialised) return;
+  state.visMapInitialised = true;
+
+  visMap = new maplibregl.Map({
+    container: 'vis-map',
+    style: getMapStyle(),
+    center: [-0.1075, 51.5175],
+    zoom: 14,
+    attributionControl: true,
+  });
+
+  visMap.addControl(new maplibregl.NavigationControl(), 'top-left');
+
+  visMap.on('load', () => {
+    addPropertyLayers(visMap);
+    addPropertyMarkers(visMap);
+  });
+}
+
+function flyToProperty(key) {
+  const p = PROPERTIES[key];
+  if (!p) return;
+
+  // Update active state in panel
+  document.querySelectorAll('.vis-property').forEach(el => {
+    el.classList.toggle('active', el.dataset.property === key);
+  });
+
+  // Fly to property
+  if (visMap) {
+    visMap.flyTo({ center: [p.lng, p.lat], zoom: 16, duration: 1500 });
+  }
+
+  // Show detail popup
+  showPropertyDetail(key);
+}
+
+function showPropertyDetail(key) {
+  const p = PROPERTIES[key];
+  if (!p) return;
+
+  document.getElementById('popup-name').textContent = p.name;
+  document.getElementById('popup-address').textContent = p.address;
+  document.getElementById('popup-body').innerHTML = `
+    <div class="popup-data-row"><span class="popup-data-label">Tenure</span><span class="popup-data-value">${p.tenure}</span></div>
+    <div class="popup-data-row"><span class="popup-data-label">Title No.</span><span class="popup-data-value">${p.title}</span></div>
+    <div class="popup-data-row"><span class="popup-data-label">Term</span><span class="popup-data-value">${p.term}</span></div>
+    <div class="popup-data-row"><span class="popup-data-label">Rent</span><span class="popup-data-value">${p.rent}</span></div>
+    <div class="popup-data-row"><span class="popup-data-label">Next Review</span><span class="popup-data-value">${p.review}</span></div>
+    <div class="popup-risk-badges">
+      ${p.risks.map(r => `<span class="popup-risk-badge" style="background:${r.color};color:${r.text}">${r.label}</span>`).join('')}
+    </div>
+  `;
+  document.getElementById('map-property-popup').classList.add('visible');
+}
+
+function closePropertyPopup() {
+  document.getElementById('map-property-popup').classList.remove('visible');
+}
+
+function toggleMapLayer(toggleEl) {
+  toggleEl.classList.toggle('on');
+  const layer = toggleEl.dataset.layer;
+  const visible = toggleEl.classList.contains('on');
+
+  if (!visMap) return;
+
+  const layerMap = {
+    'boundaries': ['boundaries-fill', 'boundaries-line'],
+    'flood': ['flood-zone-2-fill', 'flood-zone-2-line', 'flood-zone-3-fill', 'flood-zone-3-line'],
+    'planning': ['planning-circles'],
+    'environmental': ['environmental-circles'],
+  };
+
+  const layers = layerMap[layer] || [];
+  layers.forEach(id => {
+    if (visMap.getLayer(id)) {
+      visMap.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+    }
+  });
+}
+
+// =========================================================
+// WORKSPACE INLINE MAP
+// =========================================================
+function toggleWorkspaceMap() {
+  const strip = document.getElementById('workspace-map-strip');
+  state.wsMapExpanded = !state.wsMapExpanded;
+  strip.classList.toggle('expanded', state.wsMapExpanded);
+
+  if (state.wsMapExpanded && !state.wsMapInitialised) {
+    setTimeout(initWorkspaceMap, 100);
+  } else if (state.wsMapExpanded && wsMap) {
+    wsMap.resize();
+  }
+}
+
+function initWorkspaceMap() {
+  state.wsMapInitialised = true;
+
+  wsMap = new maplibregl.Map({
+    container: 'ws-map',
+    style: getMapStyle(),
+    center: [-0.1075, 51.5175],
+    zoom: 15,
+    attributionControl: false,
+    interactive: true,
+  });
+
+  wsMap.on('load', () => {
+    // Add boundary for current property
+    const p = PROPERTIES.nss;
+    wsMap.addSource('ws-boundary', {
+      type: 'geojson',
+      data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [p.boundary] } }
+    });
+    wsMap.addLayer({ id: 'ws-boundary-fill', type: 'fill', source: 'ws-boundary', paint: { 'fill-color': '#4361ee', 'fill-opacity': 0.15 } });
+    wsMap.addLayer({ id: 'ws-boundary-line', type: 'line', source: 'ws-boundary', paint: { 'line-color': '#4361ee', 'line-width': 2, 'line-dasharray': [2, 1] } });
+
+    // Add flood zone
+    wsMap.addSource('ws-flood', { type: 'geojson', data: FLOOD_ZONE_2 });
+    wsMap.addLayer({ id: 'ws-flood-fill', type: 'fill', source: 'ws-flood', paint: { 'fill-color': '#38bdf8', 'fill-opacity': 0.1 }, layout: { visibility: 'visible' } });
+    wsMap.addLayer({ id: 'ws-flood-line', type: 'line', source: 'ws-flood', paint: { 'line-color': '#38bdf8', 'line-width': 1.5, 'line-dasharray': [4, 2] }, layout: { visibility: 'visible' } });
+
+    // Add planning
+    wsMap.addSource('ws-planning', { type: 'geojson', data: { type: 'FeatureCollection', features: PLANNING_APPS.features.filter(f => f.geometry.coordinates[0] > -0.2 && f.geometry.coordinates[0] < 0) } });
+    wsMap.addLayer({ id: 'ws-planning-circles', type: 'circle', source: 'ws-planning', paint: { 'circle-radius': 6, 'circle-color': '#ff6b2c', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }, layout: { visibility: 'none' } });
+
+    // Property marker
+    const el = document.createElement('div');
+    el.style.cssText = 'width:24px;height:24px;background:#4361ee;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+    new maplibregl.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(wsMap);
+  });
+}
+
+function toggleWsMapLayer(chipEl) {
+  chipEl.classList.toggle('active');
+  const layer = chipEl.dataset.wslayer;
+  const visible = chipEl.classList.contains('active');
+
+  if (!wsMap) return;
+
+  const layerMap = {
+    'boundary': ['ws-boundary-fill', 'ws-boundary-line'],
+    'flood': ['ws-flood-fill', 'ws-flood-line'],
+    'planning': ['ws-planning-circles'],
+  };
+  (layerMap[layer] || []).forEach(id => {
+    if (wsMap.getLayer(id)) wsMap.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+  });
+}
+
+// =========================================================
+// MAP MODAL
+// =========================================================
+function showMap() {
+  document.getElementById('map-modal').classList.add('active');
+  if (!state.modalMapInitialised) {
+    setTimeout(initModalMap, 100);
+  } else if (modalMap) {
+    modalMap.resize();
+  }
+}
+
+function initModalMap() {
+  state.modalMapInitialised = true;
+  modalMap = new maplibregl.Map({
+    container: 'modal-map',
+    style: getMapStyle(),
+    center: [-0.1075, 51.5175],
+    zoom: 16,
+    attributionControl: false,
+  });
+
+  modalMap.on('load', () => {
+    const p = PROPERTIES.nss;
+    // Boundary
+    modalMap.addSource('modal-boundary', {
+      type: 'geojson', data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [p.boundary] } }
+    });
+    modalMap.addLayer({ id: 'modal-boundary-fill', type: 'fill', source: 'modal-boundary', paint: { 'fill-color': '#4361ee', 'fill-opacity': 0.2 } });
+    modalMap.addLayer({ id: 'modal-boundary-line', type: 'line', source: 'modal-boundary', paint: { 'line-color': '#4361ee', 'line-width': 2 } });
+
+    // Flood
+    modalMap.addSource('modal-flood', { type: 'geojson', data: FLOOD_ZONE_2 });
+    modalMap.addLayer({ id: 'modal-flood-fill', type: 'fill', source: 'modal-flood', paint: { 'fill-color': '#38bdf8', 'fill-opacity': 0.1 } });
+    modalMap.addLayer({ id: 'modal-flood-line', type: 'line', source: 'modal-flood', paint: { 'line-color': '#38bdf8', 'line-width': 1, 'line-dasharray': [3, 2] } });
+
+    // Marker
+    const el = document.createElement('div');
+    el.style.cssText = 'width:24px;height:24px;background:#4361ee;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+    new maplibregl.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(modalMap);
+  });
+}
+
+function closeMap(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('map-modal').classList.remove('active');
+}
+
+// =========================================================
+// UTILITIES
+// =========================================================
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function scrollContentToBottom() {
+  setTimeout(() => {
+    const el = document.getElementById('content-scroll');
+    el.scrollTop = el.scrollHeight;
+  }, 50);
+}
+
+// Close modals on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeBlueprintDetail();
+    closeMap();
+    closePropertyPopup();
+  }
+});
+</script>
+</body>
+</html>
